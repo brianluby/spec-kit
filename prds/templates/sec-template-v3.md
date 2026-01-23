@@ -20,6 +20,17 @@
 
 ---
 
+## Severity Definitions
+
+| Level | Label | Definition |
+|-------|-------|------------|
+| 🔴 | **Critical** | Immediate exploitation risk; data breach or system compromise likely |
+| 🟠 | **High** | Significant risk; exploitation possible with moderate effort |
+| 🟡 | **Medium** | Notable risk; exploitation requires specific conditions |
+| 🟢 | **Low** | Minor risk; limited impact or unlikely exploitation |
+
+---
+
 ## Linkage ⚪ `@auto`
 
 | Document | ID | Relationship |
@@ -38,6 +49,14 @@ This is a **lightweight security review** intended to catch obvious security con
 2. What data does it touch, and how sensitive is that data?
 3. What's the impact if something goes wrong?
 
+**Scope of this review:**
+- ✅ Attack surface identification
+- ✅ Data classification
+- ✅ High-level CIA assessment
+- ❌ Detailed threat enumeration (deferred to implementation)
+- ❌ Penetration testing (deferred to implementation)
+- ❌ Compliance audit (separate process)
+
 ---
 
 ## Feature Security Summary
@@ -55,6 +74,12 @@ This is a **lightweight security review** intended to catch obvious security con
 
 ### Exposure Points 🟡 `@human-review`
 
+<!-- 
+IMPORTANT: If ANY exposure points are listed, DELETE the "None" row.
+If there is NO external exposure, keep ONLY the "None" row and delete all others.
+Do not leave contradictory rows.
+-->
+
 What entry points does this feature create or modify?
 
 | Exposure Type | Details | Authentication | Authorization | Notes |
@@ -65,7 +90,7 @@ What entry points does this feature create or modify?
 | Webhook/Callback | [e.g., receives events from X] | [Yes/No - method] | — | |
 | Scheduled Job | [e.g., cron, Lambda schedule] | — | — | |
 | Message Queue Consumer | [e.g., SQS, Kafka topic] | — | — | |
-| None | Feature has no external exposure | — | — | |
+| **None** | **Feature has no external exposure** | — | — | |
 
 ### Attack Surface Diagram 🟢 `@llm-autonomous`
 
@@ -120,13 +145,19 @@ Quick validation of common exposure risks:
 
 ### Data Inventory 🟡 `@human-review`
 
+<!-- 
+Cross-reference with PRD Data Model. 
+For EVERY entity in the PRD Data Model, assign a classification here.
+Use PRD Glossary terms consistently.
+-->
+
 What data does this feature collect, process, store, or transmit?
 
-| Data Element | Classification | Source | Destination | Retention | Encrypted at Rest | Encrypted in Transit |
-|--------------|----------------|--------|-------------|-----------|-------------------|---------------------|
-| [e.g., User email] | Confidential | User input | PostgreSQL | 2 years | Yes | Yes |
-| [e.g., API logs] | Internal | System | CloudWatch | 30 days | Yes | Yes |
-| [e.g., Payment token] | Restricted | Stripe API | Memory only | None | N/A | Yes |
+| Data Element | PRD Entity | Classification | Source | Destination | Retention | Encrypted Rest | Encrypted Transit | Residency |
+|--------------|------------|----------------|--------|-------------|-----------|----------------|-------------------|-----------|
+| [e.g., User email] | User.email | Confidential | User input | PostgreSQL | 2 years | Yes | Yes | [Region/Any] |
+| [e.g., API logs] | — | Internal | System | CloudWatch | 30 days | Yes | Yes | US |
+| [e.g., Payment token] | Payment.token | Restricted | Stripe API | Memory only | None | N/A | Yes | N/A |
 
 ### Data Classification Reference 🟢 `@llm-autonomous`
 
@@ -138,6 +169,8 @@ What data does this feature collect, process, store, or transmit?
 | 4 | **Restricted** | Severe impact if disclosed | Payment data, health records, secrets | Encryption, strict access, compliance requirements |
 
 ### Data Flow Diagram 🟢 `@llm-autonomous`
+
+<!-- Diagram node names should match Data Inventory elements -->
 
 ```mermaid
 flowchart TD
@@ -174,6 +207,38 @@ flowchart TD
 - [ ] **Logs do not contain Confidential/Restricted data** (or are properly secured)
 - [ ] **Secrets are not hardcoded** (use secret manager)
 - [ ] **Data minimization applied** (only collect what's needed)
+- [ ] **Data residency requirements documented** (if applicable)
+
+---
+
+## Third-Party & Supply Chain 🟡 `@human-review`
+
+<!-- 
+List all NEW external services, libraries, or dependencies introduced by this feature.
+Existing/approved dependencies don't need to be listed.
+-->
+
+### New External Services
+
+| Service | Purpose | Data Shared | Communication | Approved? |
+|---------|---------|-------------|---------------|-----------|
+| [e.g., Stripe API] | Payment processing | Payment tokens | HTTPS/TLS 1.3 | [Yes/No/Pending] |
+| [e.g., SendGrid] | Email delivery | User emails | HTTPS/TLS 1.2 | [Yes/No/Pending] |
+
+### New Libraries/Dependencies
+
+| Library | Version | License | Purpose | Security Check |
+|---------|---------|---------|---------|----------------|
+| [e.g., serde] | 1.0.x | MIT/Apache | Serialization | [✅ Approved / ⚠️ Review / ❌ Blocked] |
+| [e.g., reqwest] | 0.11.x | MIT/Apache | HTTP client | [✅ Approved / ⚠️ Review / ❌ Blocked] |
+
+### Supply Chain Checklist
+
+- [ ] **All new services use encrypted communication**
+- [ ] **Service agreements/ToS reviewed** (if applicable)
+- [ ] **Dependencies have acceptable licenses** (MIT, Apache, BSD preferred)
+- [ ] **Dependencies are actively maintained** (recent commits, responsive maintainers)
+- [ ] **No known critical vulnerabilities** in dependency versions
 
 ---
 
@@ -216,19 +281,15 @@ If this feature is compromised, what's the impact?
 
 ### CIA Summary 🟢 `@llm-autonomous`
 
-```mermaid
-quadrantChart
-    title CIA Risk Overview
-    x-axis Low Impact --> High Impact
-    y-axis Low Likelihood --> High Likelihood
-    quadrant-1 Monitor
-    quadrant-2 Immediate Action
-    quadrant-3 Accept
-    quadrant-4 Mitigate
-    Confidentiality: [0.3, 0.4]
-    Integrity: [0.5, 0.3]
-    Availability: [0.4, 0.5]
-```
+<!-- Simple table replaces quadrant chart for LLM clarity -->
+
+| Dimension | Risk Level | Primary Concern | Mitigation Priority |
+|-----------|------------|-----------------|---------------------|
+| **Confidentiality** | [Low/Med/High] | [Top concern] | [High/Medium/Low] |
+| **Integrity** | [Low/Med/High] | [Top concern] | [High/Medium/Low] |
+| **Availability** | [Low/Med/High] | [Top concern] | [High/Medium/Low] |
+
+**Overall CIA Risk:** [Low | Medium | High] — *[One sentence summary]*
 
 ---
 
@@ -296,23 +357,40 @@ If risks are being accepted rather than mitigated:
 
 ## Security Requirements 🟡 `@human-review`
 
+<!-- 
+Each requirement should trace to a PRD Acceptance Criteria where possible.
+Specify how each requirement will be verified.
+-->
+
 Based on this review, the implementation MUST satisfy:
 
 ### Authentication & Authorization
-- [ ] [Specific requirement, e.g., "All /api/* endpoints require valid JWT"]
-- [ ] [Specific requirement, e.g., "Resource access must validate ownership"]
+
+| Req ID | Requirement | PRD AC | Verification Method |
+|--------|-------------|--------|---------------------|
+| SEC-1 | All /api/* endpoints require valid JWT | AC-1 | Integration Test |
+| SEC-2 | Resource access must validate ownership | AC-2 | Integration Test |
 
 ### Data Protection
-- [ ] [Specific requirement, e.g., "User PII must be encrypted with AES-256 at rest"]
-- [ ] [Specific requirement, e.g., "Logs must not contain email addresses"]
+
+| Req ID | Requirement | PRD AC | Verification Method |
+|--------|-------------|--------|---------------------|
+| SEC-3 | User PII encrypted with AES-256 at rest | — | Manual Review |
+| SEC-4 | Logs must not contain email addresses | — | Unit Test |
 
 ### Input Validation
-- [ ] [Specific requirement, e.g., "File uploads limited to 10MB, image types only"]
-- [ ] [Specific requirement, e.g., "All string inputs sanitized for XSS"]
+
+| Req ID | Requirement | PRD AC | Verification Method |
+|--------|-------------|--------|---------------------|
+| SEC-5 | File uploads limited to 10MB, image types only | AC-3 | Integration Test |
+| SEC-6 | All string inputs sanitized for XSS | — | Unit Test |
 
 ### Operational Security
-- [ ] [Specific requirement, e.g., "Failed auth attempts logged with IP"]
-- [ ] [Specific requirement, e.g., "Rate limit: 100 req/min per user"]
+
+| Req ID | Requirement | PRD AC | Verification Method |
+|--------|-------------|--------|---------------------|
+| SEC-7 | Failed auth attempts logged with IP | — | Manual Review |
+| SEC-8 | Rate limit: 100 req/min per user | M-2 | Load Test |
 
 ---
 
@@ -320,14 +398,16 @@ Based on this review, the implementation MUST satisfy:
 
 Does this feature have regulatory implications?
 
-| Regulation | Applicable? | Relevant Requirements | Notes |
-|------------|-------------|----------------------|-------|
-| GDPR | [Yes/No] | [e.g., Right to deletion, consent] | |
-| CCPA | [Yes/No] | [e.g., Data disclosure] | |
-| SOC 2 | [Yes/No] | [e.g., Access controls, logging] | |
-| HIPAA | [Yes/No] | [e.g., PHI handling] | |
-| PCI-DSS | [Yes/No] | [e.g., Payment data handling] | |
-| Other | [Yes/No] | [Specify] | |
+<!-- If not applicable, mark N/A and provide brief justification -->
+
+| Regulation | Applicable? | Relevant Requirements | N/A Justification |
+|------------|-------------|----------------------|-------------------|
+| GDPR | [Yes/No/N/A] | [e.g., Right to deletion, consent] | [Why N/A if applicable] |
+| CCPA | [Yes/No/N/A] | [e.g., Data disclosure] | [Why N/A if applicable] |
+| SOC 2 | [Yes/No/N/A] | [e.g., Access controls, logging] | [Why N/A if applicable] |
+| HIPAA | [Yes/No/N/A] | [e.g., PHI handling] | [Why N/A if applicable] |
+| PCI-DSS | [Yes/No/N/A] | [e.g., Payment data handling] | [Why N/A if applicable] |
+| Other | [Yes/No/N/A] | [Specify] | [Why N/A if applicable] |
 
 ---
 
@@ -337,8 +417,8 @@ Does this feature have regulatory implications?
 
 | ID | Finding | Severity | Category | Recommendation | Status |
 |----|---------|----------|----------|----------------|--------|
-| F1 | [What was found] | [Low/Med/High/Crit] | [Exposure/Data/CIA] | [What to do] | [Open/Resolved] |
-| F2 | [What was found] | [Low/Med/High/Crit] | [Exposure/Data/CIA] | [What to do] | [Open/Resolved] |
+| F1 | [What was found] | [Low/Med/High/Crit] | [Exposure/Data/CIA/Supply Chain] | [What to do] | [Open/Resolved] |
+| F2 | [What was found] | [Low/Med/High/Crit] | [Exposure/Data/CIA/Supply Chain] | [What to do] | [Open/Resolved] |
 
 ### Positive Observations 🟢 `@llm-autonomous`
 
@@ -377,13 +457,30 @@ Does this feature have regulatory implications?
 
 ---
 
+## Security Requirements Traceability 🟢 `@llm-autonomous`
+
+<!-- Ensures all security requirements map to verification -->
+
+| SEC Req ID | PRD Req ID | PRD AC ID | Test Type | Test Location |
+|------------|------------|-----------|-----------|---------------|
+| SEC-1 | M-1 | AC-1 | Integration | tests/auth_test.rs |
+| SEC-2 | M-1 | AC-2 | Integration | tests/authz_test.rs |
+| SEC-3 | — | — | Manual | Security checklist |
+
+---
+
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Approved:
-- [ ] Attack surface is documented with auth/authz status
-- [ ] All data elements are classified
-- [ ] CIA impact is assessed for each risk level
+- [ ] Attack surface documented with auth/authz status for each exposure
+- [ ] Exposure Points table has no contradictory rows (None vs. actual endpoints)
+- [ ] All PRD Data Model entities appear in Data Inventory
+- [ ] All data elements are classified using the 4-tier model
+- [ ] Third-party dependencies and services are listed
+- [ ] CIA impact is assessed with Low/Medium/High ratings
 - [ ] Trust boundaries are identified
-- [ ] Security requirements are specific and testable
+- [ ] Security requirements have verification methods specified
+- [ ] Security requirements trace to PRD ACs where applicable
 - [ ] No Critical/High findings remain Open
-- [ ] Compliance implications are documented (or N/A)
+- [ ] Compliance N/A items have justification
+- [ ] Risk acceptance has named approver and review date
