@@ -241,6 +241,298 @@ WORKTREE_STRATEGY_CHOICES = {
     "custom": "Custom path (specify location)"
 }
 
+# ---------------------------------------------------------------------------
+# Agent command configuration — maps each agent to its command directory,
+# file extension, and argument placeholder format.
+# Derived from create-release-packages.sh build_variant() cases.
+# ---------------------------------------------------------------------------
+AGENT_COMMAND_CONFIG = {
+    "claude":       {"dir": ".claude/commands",     "ext": "md",       "args": "$ARGUMENTS"},
+    "gemini":       {"dir": ".gemini/commands",     "ext": "toml",     "args": "{{args}}"},
+    "copilot":      {"dir": ".github/agents",       "ext": "agent.md", "args": "$ARGUMENTS"},
+    "cursor-agent": {"dir": ".cursor/commands",     "ext": "md",       "args": "$ARGUMENTS"},
+    "qwen":         {"dir": ".qwen/commands",       "ext": "toml",     "args": "{{args}}"},
+    "opencode":     {"dir": ".opencode/command",    "ext": "md",       "args": "$ARGUMENTS"},
+    "windsurf":     {"dir": ".windsurf/workflows",  "ext": "md",       "args": "$ARGUMENTS"},
+    "codex":        {"dir": ".codex/prompts",       "ext": "md",       "args": "$ARGUMENTS"},
+    "kilocode":     {"dir": ".kilocode/workflows",  "ext": "md",       "args": "$ARGUMENTS"},
+    "auggie":       {"dir": ".augment/commands",    "ext": "md",       "args": "$ARGUMENTS"},
+    "roo":          {"dir": ".roo/commands",        "ext": "md",       "args": "$ARGUMENTS"},
+    "codebuddy":    {"dir": ".codebuddy/commands",  "ext": "md",       "args": "$ARGUMENTS"},
+    "qoder":        {"dir": ".qoder/commands",      "ext": "md",       "args": "$ARGUMENTS"},
+    "amp":          {"dir": ".agents/commands",     "ext": "md",       "args": "$ARGUMENTS"},
+    "shai":         {"dir": ".shai/commands",       "ext": "md",       "args": "$ARGUMENTS"},
+    "q":            {"dir": ".amazonq/prompts",     "ext": "md",       "args": "$ARGUMENTS"},
+    "bob":          {"dir": ".bob/commands",        "ext": "md",       "args": "$ARGUMENTS"},
+}
+
+# ---------------------------------------------------------------------------
+# Bundled template processing — ports create-release-packages.sh logic to
+# Python so `specify init` works offline from wheel-bundled data.
+# ---------------------------------------------------------------------------
+import re
+
+def _bundled_data_dir() -> Path:
+    """Return the path to bundled package data (templates/scripts/memory).
+
+    In an installed wheel the data lives at ``<package>/data/``.
+    In an editable / source-tree install the top-level repo directories
+    (``templates/``, ``scripts/``, ``memory/``) are used directly via a
+    lightweight shim that maps the expected sub-paths.
+    """
+    pkg_data = Path(__file__).parent / "data"
+    if pkg_data.is_dir():
+        return pkg_data
+    # Editable install: __file__ is src/specify_cli/__init__.py → repo root
+    # is two levels up.
+    repo_root = Path(__file__).parent.parent.parent
+    if (repo_root / "templates").is_dir():
+        return repo_root
+    # Last resort — return pkg_data and let callers fail with clear errors.
+    return pkg_data
+
+
+def _parse_command_frontmatter(content: str) -> tuple[dict, str]:
+    """Parse YAML-ish frontmatter from a command template.
+
+    Returns (frontmatter_dict, body) where body still includes ``---``
+    delimiters and remaining frontmatter fields (description, handoffs, tools)
+    but with ``scripts:`` and ``agent_scripts:`` sections removed.
+
+    The parser is intentionally minimal — it only extracts the fields the
+    template engine needs and preserves everything else verbatim.
+    """
+    lines = content.split("\n")
+
+    # Locate the two --- delimiters
+    dashes = [i for i, ln in enumerate(lines) if ln.strip() == "---"]
+    if len(dashes) < 2:
+        # No valid frontmatter — return content as-is
+        return {}, content
+
+    fm_start, fm_end = dashes[0], dashes[1]
+    fm_lines = lines[fm_start + 1 : fm_end]
+
+    # --- extract values we care about ---
+    meta: dict = {}
+    i = 0
+    while i < len(fm_lines):
+        line = fm_lines[i]
+
+        # top-level scalar: description, tools
+        if line.startswith("description:"):
+            meta["description"] = line.split(":", 1)[1].strip()
+        elif line.startswith("scripts:"):
+            # collect indented children
+            scripts = {}
+            i += 1
+            while i < len(fm_lines) and fm_lines[i].startswith((" ", "\t")):
+                key, _, val = fm_lines[i].strip().partition(":")
+                scripts[key.strip()] = val.strip()
+                i += 1
+            meta["scripts"] = scripts
+            continue  # already advanced i
+        elif line.startswith("agent_scripts:"):
+            agent_scripts = {}
+            i += 1
+            while i < len(fm_lines) and fm_lines[i].startswith((" ", "\t")):
+                key, _, val = fm_lines[i].strip().partition(":")
+                agent_scripts[key.strip()] = val.strip()
+                i += 1
+            meta["agent_scripts"] = agent_scripts
+            continue
+        i += 1
+
+    # --- rebuild body with scripts:/agent_scripts: sections stripped ---
+    cleaned_fm: list[str] = []
+    j = 0
+    while j < len(fm_lines):
+        line = fm_lines[j]
+        if line.startswith("scripts:") or line.startswith("agent_scripts:"):
+            # skip this line plus its indented children
+            j += 1
+            while j < len(fm_lines) and fm_lines[j].startswith((" ", "\t")):
+                j += 1
+            continue
+        cleaned_fm.append(line)
+        j += 1
+
+    # Reassemble: --- / cleaned frontmatter / --- / body
+    body_parts = (
+        [lines[fm_start]]          # opening ---
+        + cleaned_fm               # remaining frontmatter lines
+        + [lines[fm_end]]          # closing ---
+        + lines[fm_end + 1 :]      # body after frontmatter
+    )
+    body = "\n".join(body_parts)
+    return meta, body
+
+
+def _rewrite_paths(text: str) -> str:
+    """Rewrite bare memory/, scripts/, templates/ refs to .specify/ equivalents."""
+    text = re.sub(r"(/?)memory/", r".specify/memory/", text)
+    text = re.sub(r"(/?)scripts/", r".specify/scripts/", text)
+    text = re.sub(r"(/?)templates/", r".specify/templates/", text)
+    return text
+
+
+def _process_command_template(
+    template_path: Path,
+    agent: str,
+    script_type: str,
+    output_dir: Path,
+    config: dict,
+) -> None:
+    """Process a single command template and write the agent-specific output file."""
+    ext = config["ext"]
+    arg_format = config["args"]
+    name = template_path.stem  # e.g. "specify", "plan"
+
+    content = template_path.read_text(encoding="utf-8").replace("\r", "")
+    meta, body = _parse_command_frontmatter(content)
+
+    # {SCRIPT} → script command from frontmatter
+    script_cmd = (meta.get("scripts") or {}).get(script_type, f"(Missing script command for {script_type})")
+    body = body.replace("{SCRIPT}", script_cmd)
+
+    # {AGENT_SCRIPT} → agent script command (only plan.md currently)
+    agent_script_cmd = (meta.get("agent_scripts") or {}).get(script_type, "")
+    if agent_script_cmd:
+        body = body.replace("{AGENT_SCRIPT}", agent_script_cmd)
+
+    # {ARGS} → agent arg format, __AGENT__ → agent name
+    body = body.replace("{ARGS}", arg_format)
+    body = body.replace("__AGENT__", agent)
+
+    # Path rewrites
+    body = _rewrite_paths(body)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_file = output_dir / f"speckit.{name}.{ext}"
+
+    if ext == "toml":
+        # Strip frontmatter entirely for TOML; wrap in description + prompt
+        description = meta.get("description", "")
+        # For TOML body: strip the --- frontmatter block
+        toml_lines = body.split("\n")
+        toml_dashes = [i for i, ln in enumerate(toml_lines) if ln.strip() == "---"]
+        if len(toml_dashes) >= 2:
+            toml_body = "\n".join(toml_lines[toml_dashes[1] + 1 :])
+        else:
+            toml_body = body
+        # Escape backslashes for TOML multi-line string
+        toml_body = toml_body.replace("\\", "\\\\")
+        out_file.write_text(
+            f'description = "{description}"\n\nprompt = """\n{toml_body}\n"""\n',
+            encoding="utf-8",
+        )
+    else:
+        # md / agent.md — write body directly (frontmatter preserved minus stripped sections)
+        out_file.write_text(body, encoding="utf-8")
+
+
+def _generate_copilot_prompts(agents_dir: Path, prompts_dir: Path) -> None:
+    """Generate .prompt.md companion files for each Copilot .agent.md command."""
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    for agent_file in sorted(agents_dir.glob("speckit.*.agent.md")):
+        basename = agent_file.name.removesuffix(".agent.md")
+        prompt_file = prompts_dir / f"{basename}.prompt.md"
+        prompt_file.write_text(f"---\nagent: {basename}\n---\n", encoding="utf-8")
+
+
+def _copy_shared_assets(
+    data_dir: Path,
+    project_path: Path,
+    script_type: str,
+) -> None:
+    """Copy memory, selected script variant, and non-command templates into .specify/."""
+    specify_dir = project_path / ".specify"
+
+    # memory/
+    src_memory = data_dir / "memory"
+    if src_memory.is_dir():
+        shutil.copytree(src_memory, specify_dir / "memory", dirs_exist_ok=True)
+
+    # scripts — only the selected variant
+    src_scripts = data_dir / "scripts"
+    if src_scripts.is_dir():
+        dest_scripts = specify_dir / "scripts"
+        dest_scripts.mkdir(parents=True, exist_ok=True)
+        variant_dir = "bash" if script_type == "sh" else "powershell"
+        src_variant = src_scripts / variant_dir
+        if src_variant.is_dir():
+            shutil.copytree(src_variant, dest_scripts / variant_dir, dirs_exist_ok=True)
+        # Copy any top-level script files (not in variant dirs)
+        for f in src_scripts.iterdir():
+            if f.is_file():
+                shutil.copy2(f, dest_scripts / f.name)
+
+    # templates (non-command .md files, excluding vscode-settings.json)
+    src_templates = data_dir / "templates"
+    if src_templates.is_dir():
+        dest_templates = specify_dir / "templates"
+        dest_templates.mkdir(parents=True, exist_ok=True)
+        for f in src_templates.iterdir():
+            if f.is_file() and f.name != "vscode-settings.json" and not f.name.startswith("."):
+                shutil.copy2(f, dest_templates / f.name)
+
+
+def install_from_bundled_templates(
+    project_path: Path,
+    agent: str,
+    script_type: str,
+    *,
+    is_current_dir: bool = False,
+    tracker: StepTracker | None = None,
+) -> Path:
+    """Install templates from wheel-bundled data instead of downloading from GitHub.
+
+    This is the offline replacement for download_and_extract_template().
+    """
+    data_dir = _bundled_data_dir()
+    config = AGENT_COMMAND_CONFIG[agent]
+
+    if tracker:
+        tracker.start("install", "processing templates")
+
+    try:
+        if not is_current_dir:
+            project_path.mkdir(parents=True, exist_ok=True)
+
+        # 1. Copy shared assets (memory, scripts, non-command templates)
+        _copy_shared_assets(data_dir, project_path, script_type)
+
+        # 2. Process command templates
+        commands_dir = data_dir / "templates" / "commands"
+        output_dir = project_path / config["dir"]
+        if commands_dir.is_dir():
+            for template_file in sorted(commands_dir.glob("*.md")):
+                _process_command_template(template_file, agent, script_type, output_dir, config)
+
+        # 3. Copilot extras: .prompt.md companions + vscode settings
+        if agent == "copilot":
+            _generate_copilot_prompts(output_dir, project_path / ".github" / "prompts")
+            vscode_src = data_dir / "templates" / "vscode-settings.json"
+            if vscode_src.is_file():
+                vscode_dest = project_path / ".vscode" / "settings.json"
+                vscode_dest.parent.mkdir(parents=True, exist_ok=True)
+                if vscode_dest.exists():
+                    handle_vscode_settings(vscode_src, vscode_dest, Path("settings.json"))
+                else:
+                    shutil.copy2(vscode_src, vscode_dest)
+
+        if tracker:
+            tracker.complete("install", f"{agent} ({script_type})")
+    except Exception as e:
+        if tracker:
+            tracker.error("install", str(e))
+        if not is_current_dir and project_path.exists():
+            shutil.rmtree(project_path)
+        raise
+
+    return project_path
+
+
 CLAUDE_LOCAL_PATH = Path.home() / ".claude" / "local" / "claude"
 
 BANNER = """
@@ -1287,11 +1579,7 @@ def init(
     else:
         tracker.complete("git-workflow", "branch")
     tracker_steps = [
-        ("fetch", "Fetch latest release"),
-        ("download", "Download template"),
-        ("extract", "Extract template"),
-        ("zip-list", "Archive contents"),
-        ("extracted-summary", "Extraction summary"),
+        ("install", "Install templates"),
         ("chmod", "Ensure scripts executable"),
         ("write-config", "Save git workflow config"),
     ]
@@ -1299,7 +1587,6 @@ def init(
     if selected_git_mode == "worktree" and selected_worktree_strategy == "nested":
         tracker_steps.append(("update-gitignore", "Update .gitignore"))
     tracker_steps.extend([
-        ("cleanup", "Cleanup"),
         ("git", "Initialize git repository"),
         ("final", "Finalize")
     ])
@@ -1312,11 +1599,7 @@ def init(
     with Live(tracker.render(), console=console, refresh_per_second=8, transient=True) as live:
         tracker.attach_refresh(lambda: live.update(tracker.render()))
         try:
-            verify = not skip_tls
-            local_ssl_context = ssl_context if verify else False
-            local_client = httpx.Client(verify=local_ssl_context)
-
-            download_and_extract_template(project_path, selected_ai, selected_script, here, verbose=False, tracker=tracker, client=local_client, debug=debug, github_token=github_token)
+            install_from_bundled_templates(project_path, selected_ai, selected_script, is_current_dir=here, tracker=tracker)
 
             ensure_executable_scripts(project_path, tracker=tracker)
 
