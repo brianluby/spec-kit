@@ -36,7 +36,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - Technical Constraints
      - Security Considerations section (if filled)
 
-3. **Optional context**: If `ard.md` exists in FEATURE_DIR, read it for:
+3. **Optional context**: If `ar.md` exists in FEATURE_DIR, read it for:
    - Component architecture and data flow
    - External dependencies and services
    - Interface definitions
@@ -46,7 +46,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 5. **Execute security review workflow**:
 
-    1. Fill **Linkage** section with references to PRD and ARD (if exists)
+    1. Fill **Linkage** section with references to PRD and AR (if exists)
     2. Draft **Feature Security Summary** — one-line summary and initial risk assessment
     3. **Attack Surface Analysis**:
        - Map PRD Interface Contract → Exposure Points table
@@ -58,7 +58,7 @@ You **MUST** consider the user input before proceeding (if not empty).
        - For EVERY entity in the PRD Data Model, assign a classification
        - Generate Data Flow Diagram showing data movement and classification levels
        - Complete Data Handling Checklist
-    5. **Third-Party & Supply Chain**: List new external services and dependencies from PRD/ARD
+    5. **Third-Party & Supply Chain**: List new external services and dependencies from PRD/AR
     6. **CIA Impact Assessment**:
        - Confidentiality: What could be disclosed? Map to data classifications
        - Integrity: What could be modified? Map to data entities

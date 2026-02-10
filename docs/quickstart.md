@@ -166,5 +166,5 @@ Finally, implement the solution:
 ## Next Steps
 
 - Read the [complete methodology](../spec-driven.md) for in-depth guidance
-- Check out [more examples](../templates) in the repository, including PRD/ARD/SEC templates and updated checklist templates
+- Check out [more examples](../templates) in the repository, including PRD/AR/SEC templates and updated checklist templates
 - Explore the [source code on GitHub](https://github.com/brianluby/spec-kit)

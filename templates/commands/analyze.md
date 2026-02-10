@@ -15,7 +15,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Identify inconsistencies, duplications, ambiguities, and underspecified items across all available artifacts (`spec.md`, `plan.md`, `tasks.md`, and optionally `prd.md`, `ard.md`, `sec.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.
+Identify inconsistencies, duplications, ambiguities, and underspecified items across all available artifacts (`spec.md`, `plan.md`, `tasks.md`, and optionally `prd.md`, `ar.md`, `sec.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.
 
 ## Operating Constraints
 
@@ -33,7 +33,7 @@ Run `{SCRIPT}` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_
 - PLAN = FEATURE_DIR/plan.md
 - TASKS = FEATURE_DIR/tasks.md
 - PRD = FEATURE_DIR/prd.md (optional — formal workflow)
-- ARD = FEATURE_DIR/ard.md (optional — formal workflow)
+- AR = FEATURE_DIR/ar.md (optional — formal workflow)
 - SEC = FEATURE_DIR/sec.md (optional — formal workflow)
 
 Abort with an error message if any required file (spec.md or prd.md, plan.md, tasks.md) is missing (instruct the user to run missing prerequisite command). At least one requirements document (spec.md or prd.md) must exist.
@@ -52,7 +52,7 @@ Load only the minimal necessary context from each artifact:
 - Acceptance Criteria (from prd.md if available, including User Story traceability)
 - Edge Cases (if present)
 
-**From ard.md (if present):**
+**From ar.md (if present):**
 
 - Selected architecture option and rationale
 - Driving Requirements (must trace to PRD/spec requirement IDs)
@@ -127,7 +127,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Tasks with no mapped requirement/story
 - Non-functional requirements not reflected in tasks (e.g., performance, security)
 - If sec.md exists: Security requirements (SEC-*) with no corresponding tasks
-- If ard.md exists: Implementation guardrails not reflected in tasks or plan
+- If ar.md exists: Implementation guardrails not reflected in tasks or plan
 
 #### F. Inconsistency
 
@@ -135,7 +135,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Data entities referenced in plan but absent in spec/prd (or vice versa)
 - Task ordering contradictions (e.g., integration tasks before foundational setup tasks without dependency note)
 - Conflicting requirements (e.g., one requires Next.js while other specifies Vue)
-- If ard.md exists: Architecture driving requirements not matching PRD/spec requirement IDs
+- If ar.md exists: Architecture driving requirements not matching PRD/spec requirement IDs
 - If sec.md exists: Data classifications inconsistent with data model entities
 
 ### 5. Severity Assignment

@@ -122,7 +122,7 @@ if ((Test-Path $paths.CONTRACTS_DIR) -and (Get-ChildItem -Path $paths.CONTRACTS_
 
 if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
 if (Test-Path $paths.PRD) { $docs += 'prd.md' }
-if (Test-Path $paths.ARD) { $docs += 'ard.md' }
+if (Test-Path $paths.ARD) { $docs += 'ar.md' }
 if (Test-Path $paths.SEC) { $docs += 'sec.md' }
 
 # Include tasks.md if requested and it exists
@@ -148,7 +148,7 @@ if ($Json) {
     Test-DirHasFiles -Path $paths.CONTRACTS_DIR -Description 'contracts/' | Out-Null
     Test-FileExists -Path $paths.QUICKSTART -Description 'quickstart.md' | Out-Null
     Test-FileExists -Path $paths.PRD -Description 'prd.md' | Out-Null
-    Test-FileExists -Path $paths.ARD -Description 'ard.md' | Out-Null
+    Test-FileExists -Path $paths.ARD -Description 'ar.md' | Out-Null
     Test-FileExists -Path $paths.SEC -Description 'sec.md' | Out-Null
 
     if ($IncludeTasks) {

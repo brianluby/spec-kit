@@ -1,6 +1,6 @@
-# [NNN]-ard-[slug]
+# [NNN]-ar-[slug]
 
-> **Document Type:** Architecture Decision Record  
+> **Document Type:** Architecture Review  
 > **Audience:** LLM agents, human reviewers  
 > **Status:** Proposed | Accepted | Deprecated | Superseded  
 > **Last Updated:** YYYY-MM-DD <!-- @auto -->  
@@ -41,8 +41,8 @@
 |----------|-----|--------------|
 | Parent PRD | [NNN]-prd-[slug].md | Requirements this architecture satisfies |
 | Security Review | [NNN]-sec-[slug].md | Security implications of this decision |
-| Supersedes | [NNN]-ard-[old-slug].md | Previous architecture (if applicable) |
-| Superseded By | — | (Filled if this ARD is deprecated) |
+| Supersedes | [NNN]-ar-[old-slug].md | Previous architecture (if applicable) |
+| Superseded By | — | (Filled if this AR is deprecated) |
 
 ---
 
@@ -65,13 +65,13 @@
 
 <!-- Explicitly state what IS and IS NOT being decided to prevent architectural drift -->
 
-**This ARD decides:**
+**This AR decides:**
 - [What architectural question this answers]
 - [Scope boundary 1]
 
-**This ARD does NOT decide:**
+**This AR does NOT decide:**
 - [Adjacent concern explicitly excluded]
-- [Future decision deferred to another ARD]
+- [Future decision deferred to another AR]
 
 ### Current State 🟢 `@llm-autonomous`
 [Describe the existing architecture relevant to this decision. If greenfield, state "N/A - greenfield implementation".]

@@ -30,7 +30,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 2. **Load context**: Read FEATURE_SPEC and `/memory/constitution.md`. Load IMPL_PLAN template (already copied). Also check for formal workflow artifacts in FEATURE_DIR:
    - If `prd.md` exists: Read it as enriched requirements source (MoSCoW requirements, prioritized user stories, technical constraints). Use alongside or in preference to spec.md for requirements extraction.
-   - If `ard.md` exists: Read it for architecture decisions, component design, and technical constraints. Incorporate selected option and implementation guardrails into the plan.
+   - If `ar.md` exists: Read it for architecture decisions, component design, and technical constraints. Incorporate selected option and implementation guardrails into the plan.
    - If `sec.md` exists: Read it for security requirements (SEC-* IDs), trust boundaries, and data classifications. Incorporate security tasks into the plan.
 
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:

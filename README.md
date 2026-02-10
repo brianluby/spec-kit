@@ -343,7 +343,7 @@ If you encounter issues with an agent, please open an issue so we can refine the
 
 - **[Complete Spec-Driven Development Methodology](./spec-driven.md)** - Deep dive into the full process
 - **[Detailed Walkthrough](#-detailed-process)** - Step-by-step implementation guide
-- **[Template Library](./templates)** - PRD/ARD/SEC templates plus the spec/plan/tasks/checklist templates used by `specify init`
+- **[Template Library](./templates)** - PRD/AR/SEC templates plus the spec/plan/tasks/checklist templates used by `specify init`
 
 ---
 

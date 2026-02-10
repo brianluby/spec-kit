@@ -28,14 +28,14 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 2. **Load design documents**: Read from FEATURE_DIR:
    - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
-   - **Optional**: prd.md (MoSCoW requirements, prioritized user stories — if present, use as primary requirements source alongside spec.md), ard.md (architecture decisions, component design), sec.md (security requirements with SEC-* IDs), data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
+   - **Optional**: prd.md (MoSCoW requirements, prioritized user stories — if present, use as primary requirements source alongside spec.md), ar.md (architecture decisions, component design), sec.md (security requirements with SEC-* IDs), data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
    - Note: Not all projects have all documents. Generate tasks based on what's available.
 
 3. **Execute task generation workflow**:
    - Load plan.md and extract tech stack, libraries, project structure
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If prd.md exists: Use as primary requirements source — extract MoSCoW requirements (M-1, S-1, etc.) and prioritized user stories. Prefer prd.md user stories over spec.md when both exist.
-   - If ard.md exists: Extract component architecture, implementation guardrails, and selected option constraints
+   - If ar.md exists: Extract component architecture, implementation guardrails, and selected option constraints
    - If sec.md exists: Extract security requirements (SEC-*) and generate security-specific tasks (e.g., input validation, auth checks, data encryption)
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map endpoints to user stories

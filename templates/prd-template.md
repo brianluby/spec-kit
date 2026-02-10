@@ -66,7 +66,7 @@
 
 | Document | Link | Relationship |
 |----------|------|--------------|
-| Architecture Decision Record | [NNN]-ard-[slug].md | Defines technical approach |
+| Architecture Review | [NNN]-ar-[slug].md | Defines technical approach |
 | Security Review | [NNN]-sec-[slug].md | Risk assessment |
 | Parent Roadmap | roadmap.md#[section] | Strategic context |
 
@@ -190,7 +190,7 @@ stateDiagram-v2
 IMPORTANT: Each requirement MUST have a unique ID for traceability.
 Format: [Priority]-[Number] (e.g., M-1, S-2, C-1, W-1)
 Acceptance Criteria must reference these IDs.
-ARD and SEC documents will trace back to these IDs.
+AR and SEC documents will trace back to these IDs.
 -->
 
 ### Must Have (M) — MVP, launch blockers 🔴 `@human-required`
@@ -226,7 +226,7 @@ ARD and SEC documents will trace back to these IDs.
 <!--
 @human-review: Ensure this defines WHAT is needed (fields, relationships),
 not HOW it is implemented (database-specific types, indexes).
-Implementation details belong in the ARD.
+Implementation details belong in the AR.
 -->
 
 ```mermaid
@@ -403,7 +403,7 @@ Full details in the linked Security Review document.
 
 <!--
 This section serves as a formal gate before implementation begins.
-All items must be checked before proceeding to ARD or implementation.
+All items must be checked before proceeding to AR or implementation.
 -->
 
 ### Readiness Checklist

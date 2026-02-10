@@ -139,7 +139,7 @@ fi
 
 [[ -f "$QUICKSTART" ]] && docs+=("quickstart.md")
 [[ -f "$PRD" ]] && docs+=("prd.md")
-[[ -f "$ARD" ]] && docs+=("ard.md")
+[[ -f "$ARD" ]] && docs+=("ar.md")
 [[ -f "$SEC" ]] && docs+=("sec.md")
 
 # Include tasks.md if requested and it exists
@@ -169,7 +169,7 @@ else
     check_dir "$CONTRACTS_DIR" "contracts/"
     check_file "$QUICKSTART" "quickstart.md"
     check_file "$PRD" "prd.md"
-    check_file "$ARD" "ard.md"
+    check_file "$ARD" "ar.md"
     check_file "$SEC" "sec.md"
 
     if $INCLUDE_TASKS; then

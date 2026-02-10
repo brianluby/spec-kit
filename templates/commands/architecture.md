@@ -1,5 +1,5 @@
 ---
-description: Create an Architecture Decision Record (ARD) documenting technical approach, options analysis, and traceability to PRD requirements.
+description: Create an Architecture Review (AR) documenting technical approach, options analysis, and traceability to PRD requirements.
 handoffs:
   - label: Create Security Review
     agent: speckit.security
@@ -35,9 +35,9 @@ You **MUST** consider the user input before proceeding (if not empty).
      - User Stories with priorities
      - Interface Contract (if present)
 
-3. **Optional context**: If `spec.md` exists in FEATURE_DIR, read it for additional context. If `ard.md` already exists, read it as a starting point.
+3. **Optional context**: If `spec.md` exists in FEATURE_DIR, read it for additional context. If `ar.md` already exists, read it as a starting point.
 
-4. **Load template**: Read `templates/ard-template.md` to understand required sections and structure.
+4. **Load template**: Read `templates/ar-template.md` to understand required sections and structure.
 
 5. **Execute architecture workflow**:
 
@@ -59,9 +59,9 @@ You **MUST** consider the user input before proceeding (if not empty).
     12. Fill **Consequences** (positive/negative), **Risks & Mitigations**
     13. Fill **Implementation Guidance**: suggested order, testing strategy
     14. Fill **Traceability Matrix** — ensure all PRD Must Have requirements are addressed
-    15. Return: SUCCESS (ARD ready for review)
+    15. Return: SUCCESS (AR ready for review)
 
-6. **Write ARD**: Save to `FEATURE_DIR/ard.md` using the template structure.
+6. **Write AR**: Save to `FEATURE_DIR/ar.md` using the template structure.
 
 7. **Generate human decision checklist** at end of output:
 
@@ -79,7 +79,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - [ ] All @human-review sections - Review LLM-drafted technical details
    ```
 
-8. **Report**: Output path to generated `ard.md`, summary of options presented, and readiness for next phase (`/speckit.security` or `/speckit.tasks`).
+8. **Report**: Output path to generated `ar.md`, summary of options presented, and readiness for next phase (`/speckit.security` or `/speckit.tasks`).
 
 ## Key Rules
 

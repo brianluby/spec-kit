@@ -111,7 +111,7 @@ function Get-FeaturePathsEnv {
         QUICKSTART    = Join-Path $featureDir 'quickstart.md'
         CONTRACTS_DIR = Join-Path $featureDir 'contracts'
         PRD           = Join-Path $featureDir 'prd.md'
-        ARD           = Join-Path $featureDir 'ard.md'
+        ARD           = Join-Path $featureDir 'ar.md'
         SEC           = Join-Path $featureDir 'sec.md'
     }
 }

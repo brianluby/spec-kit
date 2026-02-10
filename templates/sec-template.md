@@ -36,7 +36,7 @@
 | Document | ID | Relationship |
 |----------|-----|--------------|
 | Parent PRD | [NNN]-prd-[slug].md | Feature being reviewed |
-| Architecture Decision Record | [NNN]-ard-[slug].md | Technical implementation |
+| Architecture Review | [NNN]-ar-[slug].md | Technical implementation |
 
 ---
 
