@@ -15,7 +15,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Identify inconsistencies, duplications, ambiguities, and underspecified items across the three core artifacts (`spec.md`, `plan.md`, `tasks.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.
+Identify inconsistencies, duplications, ambiguities, and underspecified items across all available artifacts (`spec.md`, `plan.md`, `tasks.md`, and optionally `prd.md`, `ard.md`, `sec.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.
 
 ## Operating Constraints
 
@@ -32,21 +32,41 @@ Run `{SCRIPT}` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md
 - TASKS = FEATURE_DIR/tasks.md
+- PRD = FEATURE_DIR/prd.md (optional — formal workflow)
+- ARD = FEATURE_DIR/ard.md (optional — formal workflow)
+- SEC = FEATURE_DIR/sec.md (optional — formal workflow)
 
-Abort with an error message if any required file is missing (instruct the user to run missing prerequisite command).
+Abort with an error message if any required file (spec.md or prd.md, plan.md, tasks.md) is missing (instruct the user to run missing prerequisite command). At least one requirements document (spec.md or prd.md) must exist.
 For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 ### 2. Load Artifacts (Progressive Disclosure)
 
 Load only the minimal necessary context from each artifact:
 
-**From spec.md:**
+**From spec.md (and/or prd.md if present):**
 
 - Overview/Context
-- Functional Requirements
+- Functional Requirements (MoSCoW requirements from prd.md if available)
 - Non-Functional Requirements
-- User Stories
+- User Stories (prioritized stories from prd.md take precedence if available)
+- Acceptance Criteria (from prd.md if available, including User Story traceability)
 - Edge Cases (if present)
+
+**From ard.md (if present):**
+
+- Selected architecture option and rationale
+- Driving Requirements (must trace to PRD/spec requirement IDs)
+- Implementation Guardrails
+- Component Overview and interfaces
+- Traceability Matrix
+
+**From sec.md (if present):**
+
+- Security requirements (SEC-* IDs)
+- Data classifications
+- CIA risk levels
+- Trust boundaries
+- Compliance requirements
 
 **From plan.md:**
 
@@ -106,13 +126,17 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Requirements with zero associated tasks
 - Tasks with no mapped requirement/story
 - Non-functional requirements not reflected in tasks (e.g., performance, security)
+- If sec.md exists: Security requirements (SEC-*) with no corresponding tasks
+- If ard.md exists: Implementation guardrails not reflected in tasks or plan
 
 #### F. Inconsistency
 
 - Terminology drift (same concept named differently across files)
-- Data entities referenced in plan but absent in spec (or vice versa)
+- Data entities referenced in plan but absent in spec/prd (or vice versa)
 - Task ordering contradictions (e.g., integration tasks before foundational setup tasks without dependency note)
 - Conflicting requirements (e.g., one requires Next.js while other specifies Vue)
+- If ard.md exists: Architecture driving requirements not matching PRD/spec requirement IDs
+- If sec.md exists: Data classifications inconsistent with data model entities
 
 ### 5. Severity Assignment
 

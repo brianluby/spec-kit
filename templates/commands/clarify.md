@@ -32,7 +32,7 @@ Execution steps:
    - If JSON parsing fails, abort and instruct user to re-run `/speckit.specify` or verify feature branch environment.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. Load the current spec file. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
+2. Load the requirements document. Check if `prd.md` exists in FEATURE_DIR — if so, use it as the primary requirements document (it contains richer MoSCoW requirements and prioritized user stories). Otherwise, fall back to FEATURE_SPEC (spec.md). If both exist, load both and clarify across them. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
 
    Functional Scope & Behavior:
    - Core user goals & success criteria
@@ -136,9 +136,9 @@ Execution steps:
     - If no valid questions exist at start, immediately report no critical ambiguities.
 
 5. Integration after EACH accepted answer (incremental update approach):
-    - Maintain in-memory representation of the spec (loaded once at start) plus the raw file contents.
+    - Maintain in-memory representation of the requirements document (spec.md or prd.md, whichever is the primary) plus the raw file contents.
     - For the first integrated answer in this session:
-       - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the spec template if missing).
+       - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the template if missing).
        - Under it, create (if not present) a `### Session YYYY-MM-DD` subheading for today.
     - Append a bullet line immediately after acceptance: `- Q: <question> → A: <final answer>`.
     - Then immediately apply the clarification to the most appropriate section(s):
@@ -161,7 +161,7 @@ Execution steps:
    - Markdown structure valid; only allowed new headings: `## Clarifications`, `### Session YYYY-MM-DD`.
    - Terminology consistency: same canonical term used across all updated sections.
 
-7. Write the updated spec back to `FEATURE_SPEC`.
+7. Write the updated requirements document back to its source file (`prd.md` if that was the primary document, otherwise `FEATURE_SPEC`).
 
 8. Report completion (after questioning loop ends or early termination):
    - Number of questions asked & answered.
@@ -174,7 +174,7 @@ Execution steps:
 Behavior rules:
 
 - If no meaningful ambiguities found (or all potential questions would be low-impact), respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding.
-- If spec file missing, instruct user to run `/speckit.specify` first (do not create a new spec here).
+- If no requirements document found (neither spec.md nor prd.md), instruct user to run `/speckit.specify` or `/speckit.prd` first (do not create a new document here).
 - Never exceed 5 total asked questions (clarification retries for a single question do not count as new questions).
 - Avoid speculative tech stack questions unless the absence blocks functional clarity.
 - Respect user early termination signals ("stop", "done", "proceed").

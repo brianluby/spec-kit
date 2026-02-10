@@ -18,7 +18,27 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git reset:*)",
-      "Bash(python3 -m py_compile:*)"
+      "Bash(python3 -m py_compile:*)",
+      "Bash(tree:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh api:*)",
+      "Bash(test:*)",
+      "Bash(git mv:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(uv run specify init:*)",
+      "Bash(AGENTS=claude SCRIPTS=sh .github/workflows/scripts/create-release-packages.sh:*)",
+      "Bash(bash:*)",
+      "Bash(uv build:*)",
+      "Bash(unzip:*)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit restore .claude/commands/)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit status)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit push)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit pull --rebase)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit stash)",
+      "Bash(git -C /Users/bluby/personal_repos/spec-kit stash pop)",
+      "Bash(wc:*)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -11,6 +11,7 @@
 #   --json              Output in JSON format
 #   --require-tasks     Require tasks.md to exist (for implementation phase)
 #   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
+#   --no-require-plan   Skip the plan.md requirement check
 #   --paths-only        Only output path variables (no validation)
 #   --help, -h          Show help message
 #
@@ -25,6 +26,7 @@ set -e
 JSON_MODE=false
 REQUIRE_TASKS=false
 INCLUDE_TASKS=false
+NO_REQUIRE_PLAN=false
 PATHS_ONLY=false
 
 for arg in "$@"; do
@@ -37,6 +39,9 @@ for arg in "$@"; do
             ;;
         --include-tasks)
             INCLUDE_TASKS=true
+            ;;
+        --no-require-plan)
+            NO_REQUIRE_PLAN=true
             ;;
         --paths-only)
             PATHS_ONLY=true
@@ -51,6 +56,7 @@ OPTIONS:
   --json              Output in JSON format
   --require-tasks     Require tasks.md to exist (for implementation phase)
   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
+  --no-require-plan   Skip the plan.md requirement check
   --paths-only        Only output path variables (no prerequisite validation)
   --help, -h          Show this help message
 
@@ -102,11 +108,11 @@ fi
 # Validate required directories and files
 if [[ ! -d "$FEATURE_DIR" ]]; then
     echo "ERROR: Feature directory not found: $FEATURE_DIR" >&2
-    echo "Run /speckit.specify first to create the feature structure." >&2
+    echo "Run /speckit.specify or /speckit.prd first to create the feature structure." >&2
     exit 1
 fi
 
-if [[ ! -f "$IMPL_PLAN" ]]; then
+if ! $NO_REQUIRE_PLAN && [[ ! -f "$IMPL_PLAN" ]]; then
     echo "ERROR: plan.md not found in $FEATURE_DIR" >&2
     echo "Run /speckit.plan first to create the implementation plan." >&2
     exit 1
@@ -132,6 +138,9 @@ if [[ -d "$CONTRACTS_DIR" ]] && [[ -n "$(ls -A "$CONTRACTS_DIR" 2>/dev/null)" ]]
 fi
 
 [[ -f "$QUICKSTART" ]] && docs+=("quickstart.md")
+[[ -f "$PRD" ]] && docs+=("prd.md")
+[[ -f "$ARD" ]] && docs+=("ard.md")
+[[ -f "$SEC" ]] && docs+=("sec.md")
 
 # Include tasks.md if requested and it exists
 if $INCLUDE_TASKS && [[ -f "$TASKS" ]]; then
@@ -159,7 +168,10 @@ else
     check_file "$DATA_MODEL" "data-model.md"
     check_dir "$CONTRACTS_DIR" "contracts/"
     check_file "$QUICKSTART" "quickstart.md"
-    
+    check_file "$PRD" "prd.md"
+    check_file "$ARD" "ard.md"
+    check_file "$SEC" "sec.md"
+
     if $INCLUDE_TASKS; then
         check_file "$TASKS" "tasks.md"
     fi

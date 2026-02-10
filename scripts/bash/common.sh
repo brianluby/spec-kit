@@ -148,6 +148,9 @@ RESEARCH='$feature_dir/research.md'
 DATA_MODEL='$feature_dir/data-model.md'
 QUICKSTART='$feature_dir/quickstart.md'
 CONTRACTS_DIR='$feature_dir/contracts'
+PRD='$feature_dir/prd.md'
+ARD='$feature_dir/ard.md'
+SEC='$feature_dir/sec.md'
 EOF
 }
 

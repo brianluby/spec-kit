@@ -11,6 +11,7 @@
 #   -Json               Output in JSON format
 #   -RequireTasks       Require tasks.md to exist (for implementation phase)
 #   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
+#   -NoRequirePlan      Skip the plan.md requirement check
 #   -PathsOnly          Only output path variables (no validation)
 #   -Help, -h           Show help message
 
@@ -19,6 +20,7 @@ param(
     [switch]$Json,
     [switch]$RequireTasks,
     [switch]$IncludeTasks,
+    [switch]$NoRequirePlan,
     [switch]$PathsOnly,
     [switch]$Help
 )
@@ -36,6 +38,7 @@ OPTIONS:
   -Json               Output in JSON format
   -RequireTasks       Require tasks.md to exist (for implementation phase)
   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
+  -NoRequirePlan      Skip the plan.md requirement check
   -PathsOnly          Only output path variables (no prerequisite validation)
   -Help, -h           Show this help message
 
@@ -88,11 +91,11 @@ if ($PathsOnly) {
 # Validate required directories and files
 if (-not (Test-Path $paths.FEATURE_DIR -PathType Container)) {
     Write-Output "ERROR: Feature directory not found: $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.specify first to create the feature structure."
+    Write-Output "Run /speckit.specify or /speckit.prd first to create the feature structure."
     exit 1
 }
 
-if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
+if (-not $NoRequirePlan -and -not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
     Write-Output "ERROR: plan.md not found in $($paths.FEATURE_DIR)"
     Write-Output "Run /speckit.plan first to create the implementation plan."
     exit 1
@@ -118,6 +121,9 @@ if ((Test-Path $paths.CONTRACTS_DIR) -and (Get-ChildItem -Path $paths.CONTRACTS_
 }
 
 if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
+if (Test-Path $paths.PRD) { $docs += 'prd.md' }
+if (Test-Path $paths.ARD) { $docs += 'ard.md' }
+if (Test-Path $paths.SEC) { $docs += 'sec.md' }
 
 # Include tasks.md if requested and it exists
 if ($IncludeTasks -and (Test-Path $paths.TASKS)) { 
@@ -141,7 +147,10 @@ if ($Json) {
     Test-FileExists -Path $paths.DATA_MODEL -Description 'data-model.md' | Out-Null
     Test-DirHasFiles -Path $paths.CONTRACTS_DIR -Description 'contracts/' | Out-Null
     Test-FileExists -Path $paths.QUICKSTART -Description 'quickstart.md' | Out-Null
-    
+    Test-FileExists -Path $paths.PRD -Description 'prd.md' | Out-Null
+    Test-FileExists -Path $paths.ARD -Description 'ard.md' | Out-Null
+    Test-FileExists -Path $paths.SEC -Description 'sec.md' | Out-Null
+
     if ($IncludeTasks) {
         Test-FileExists -Path $paths.TASKS -Description 'tasks.md' | Out-Null
     }

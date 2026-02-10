@@ -7,8 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Spec Kit** is a toolkit for Spec-Driven Development (SDD) - a methodology where specifications are the primary artifact and code is generated from them. The project consists of:
 
 1. **Specify CLI** (`src/specify_cli/__init__.py`) - A Python CLI tool that bootstraps projects with SDD templates
-2. **Templates** - Markdown templates for specs, plans, tasks, and slash commands
-3. **Shell scripts** - Bash and PowerShell scripts for workflow automation
+2. **Templates** (`templates/`) - Markdown templates for specs, plans, tasks, and slash commands
+3. **Shell scripts** (`scripts/`) - Bash and PowerShell scripts for workflow automation
+
+The project self-hosts: it uses its own SDD methodology (see `specs/` and `.specify/`).
 
 ## Development Commands
 
@@ -28,14 +30,23 @@ specify --help
 uvx --from . specify init demo --ai copilot --ignore-agent-tools
 ```
 
+Use `--ignore-agent-tools` to skip CLI tool availability checks during local testing.
+
 ### Testing template changes
 
 ```bash
-# Generate release packages locally
+# Generate release packages locally (outputs to .genreleases/)
 ./.github/workflows/scripts/create-release-packages.sh v1.0.0
 
-# Copy generated package to test project
+# Copy a generated package to a test project
 cp -r .genreleases/sdd-copilot-package-sh/. <path-to-test-project>/
+```
+
+### Linting
+
+```bash
+# Markdown linting (also runs in CI via .github/workflows/lint.yml)
+npx markdownlint-cli2 "**/*.md"
 ```
 
 ### Dependencies
@@ -47,35 +58,58 @@ uv build                   # Build wheel for distribution
 
 ## Architecture
 
-### CLI Structure (`src/specify_cli/__init__.py`)
+### CLI (`src/specify_cli/__init__.py`)
 
-- **AGENT_CONFIG dict** - Single source of truth for all supported AI agents (Claude, Gemini, Copilot, Cursor, etc.). Keys must match actual CLI tool names (e.g., `cursor-agent` not `cursor`)
+The entire CLI lives in a single ~1,400-line file. This is intentional.
+
+- **`AGENT_CONFIG` dict** - Single source of truth for all 18+ supported AI agents. Keys **must** match actual CLI executable names (e.g., `cursor-agent` not `cursor`). Each entry defines: `name`, `folder`, `install_url`, `requires_cli`.
 - **Commands**: `init`, `check`, `version`
-- **StepTracker class** - Renders hierarchical progress using Rich Tree
-- **select_with_arrows()** - Cross-platform interactive selection using readchar
+- **`StepTracker` class** - Renders hierarchical progress using Rich Tree
+- **`select_with_arrows()`** - Cross-platform interactive selection using readchar
+- **`download_template_from_github()`** / **`download_and_extract_template()`** - Fetches and extracts release ZIP from GitHub
 
 ### Template System
 
 Templates in `templates/` are packaged into agent-specific ZIP files during release:
-- `templates/commands/*.md` - Slash command definitions (analyze, checklist, clarify, constitution, implement, plan, specify, tasks)
+- `templates/commands/*.md` - Slash command definitions with YAML frontmatter containing script command variants
 - `templates/*-template.md` - Document templates for specs, plans, tasks, checklists
-- Agent directories (`.claude/`, `.gemini/`, `.cursor/`, etc.) are generated per-agent with appropriate format (Markdown or TOML)
+
+**Placeholder substitution** during release packaging:
+- `$ARGUMENTS` - User-provided arguments to the slash command
+- `{SCRIPT}` / `{AGENT_SCRIPT}` - Replaced with agent-specific script paths (bash or PowerShell)
+- `__AGENT__` - Replaced with the agent name
+
+**Format conversion**: Most agents use Markdown commands, but Gemini and Qwen use TOML format. The release script handles this conversion.
 
 ### Shell Scripts (`scripts/`)
 
-- `bash/` and `powershell/` variants for cross-platform support
-- Key scripts: `create-new-feature.sh`, `setup-plan.sh`, `update-agent-context.sh`
+- `bash/` and `powershell/` variants with full parity
+- Key scripts: `create-new-feature.sh` (branch/spec creation with smart naming), `setup-plan.sh`, `update-agent-context.sh` (generates agent files from plan.md)
 - Scripts are auto-selected based on OS unless `--script sh|ps` is specified
+- Supports git worktrees with fallback for `--no-git` workflows
+
+### Release Pipeline
+
+Triggered on push to main (paths: `memory/`, `scripts/`, `templates/`, `.github/workflows/`). Scripts live in `.github/workflows/scripts/`.
+
+1. `get-next-version.sh` - Calculates next version
+2. `check-release-exists.sh` - Prevents duplicate releases
+3. `create-release-packages.sh` - Generates **36 ZIP files** (18 agents x 2 script types) in `.genreleases/`
+4. `generate-release-notes.sh` - Extracts from `CHANGELOG.md`
+5. `create-github-release.sh` - Uploads all ZIPs to GitHub release
+
+Package naming: `spec-kit-template-{agent}-{script}-{version}.zip`
 
 ## Adding New Agent Support
 
 1. Add entry to `AGENT_CONFIG` dict in `__init__.py` - use actual CLI tool name as key
 2. Update `--ai` help text in `init()` command
 3. Update README supported agents table
-4. Update release scripts in `.github/workflows/scripts/`
-5. Update context scripts in `scripts/bash/` and `scripts/powershell/`
+4. Update release scripts: `create-release-packages.sh` (`ALL_AGENTS` array), `create-github-release.sh` (ZIP file list)
+5. Update context scripts: `scripts/bash/update-agent-context.sh` and `scripts/powershell/update-agent-context.ps1`
+6. Update `AGENTS.md` supported agents table
 
-See `AGENTS.md` for detailed integration guide.
+See `AGENTS.md` for the full integration guide including format conventions and testing checklist.
 
 ## Key Workflows
 
