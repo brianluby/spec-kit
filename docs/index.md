@@ -14,6 +14,7 @@ Spec-Driven Development **flips the script** on traditional software development
 - [Quick Start Guide](quickstart.md)
 - [Upgrade Guide](upgrade.md)
 - [Local Development](local-development.md)
+- [Worktrees](worktrees.md)
 
 ## Core Philosophy
 
@@ -60,8 +61,8 @@ Our research and experimentation focus on:
 
 ## Contributing
 
-Please see our [Contributing Guide](https://github.com/github/spec-kit/blob/main/CONTRIBUTING.md) for information on how to contribute to this project.
+Please see our [Contributing Guide](https://github.com/brianluby/spec-kit/blob/main/CONTRIBUTING.md) for information on how to contribute to this project.
 
 ## Support
 
-For support, please check our [Support Guide](https://github.com/github/spec-kit/blob/main/SUPPORT.md) or open an issue on GitHub.
+For support, please check our [Support Guide](https://github.com/brianluby/spec-kit/blob/main/SUPPORT.md) or open an issue on GitHub.

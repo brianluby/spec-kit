@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/github/spec-kit/actions/workflows/release.yml"><img src="https://github.com/github/spec-kit/actions/workflows/release.yml/badge.svg" alt="Release"/></a>
-    <a href="https://github.com/github/spec-kit/stargazers"><img src="https://img.shields.io/github/stars/github/spec-kit?style=social" alt="GitHub stars"/></a>
-    <a href="https://github.com/github/spec-kit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/github/spec-kit" alt="License"/></a>
+    <a href="https://github.com/brianluby/spec-kit/actions/workflows/release.yml"><img src="https://github.com/brianluby/spec-kit/actions/workflows/release.yml/badge.svg" alt="Release"/></a>
+    <a href="https://github.com/brianluby/spec-kit/stargazers"><img src="https://img.shields.io/github/stars/brianluby/spec-kit?style=social" alt="GitHub stars"/></a>
+    <a href="https://github.com/brianluby/spec-kit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/brianluby/spec-kit" alt="License"/></a>
     <a href="https://github.github.io/spec-kit/"><img src="https://img.shields.io/badge/docs-GitHub_Pages-blue" alt="Documentation"/></a>
 </p>
 
@@ -51,7 +51,7 @@ Choose your preferred installation method:
 Install once and use everywhere:
 
 ```bash
-uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+uv tool install specify-cli --from git+https://github.com/brianluby/spec-kit.git
 ```
 
 Then use the tool directly:
@@ -72,7 +72,7 @@ specify check
 To upgrade Specify, see the [Upgrade Guide](./docs/upgrade.md) for detailed instructions. Quick upgrade:
 
 ```bash
-uv tool install specify-cli --force --from git+https://github.com/github/spec-kit.git
+uv tool install specify-cli --force --from git+https://github.com/brianluby/spec-kit.git
 ```
 
 #### Option 2: One-time Usage
@@ -183,6 +183,9 @@ The `specify` command supports the following options:
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
 | `--no-git`             | Flag     | Skip git repository initialization                                                                                                                                                           |
+| `--git-mode`           | Option   | Git workflow mode: `branch` (default) or `worktree` (parallel directories per feature)                                                                                                       |
+| `--worktree-strategy`  | Option   | Worktree location strategy: `sibling`, `nested`, or `custom` (only used when `--git-mode worktree` is set)                                                                                  |
+| `--worktree-path`      | Option   | Custom worktree base path (absolute path required when `--worktree-strategy custom` is set)                                                                                                  |
 | `--here`               | Flag     | Initialize project in the current directory instead of creating a new one                                                                                                                    |
 | `--force`              | Flag     | Force merge/overwrite when initializing in current directory (skip confirmation)                                                                                                             |
 | `--skip-tls`           | Flag     | Skip SSL/TLS verification (not recommended)                                                                                                                                                  |
@@ -218,6 +221,15 @@ specify init my-project --ai bob
 
 # Initialize with PowerShell scripts (Windows/cross-platform)
 specify init my-project --ai copilot --script ps
+
+# Initialize with worktree mode (parallel feature directories)
+specify init my-project --git-mode worktree --worktree-strategy sibling
+
+# Worktree mode with nested strategy (.worktrees/ inside repo)
+specify init my-project --git-mode worktree --worktree-strategy nested
+
+# Worktree mode with custom base path
+specify init my-project --git-mode worktree --worktree-strategy custom --worktree-path /tmp/worktrees
 
 # Initialize in current directory
 specify init . --ai copilot
@@ -272,7 +284,7 @@ Additional commands for enhanced quality and validation:
 
 | Variable          | Description                                                                                                                                                                                                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SPECIFY_FEATURE` | Override feature detection for non-Git repositories. Set to the feature directory name (e.g., `001-photo-albums`) to work on a specific feature when not using Git branches.<br/>\*\*Must be set in the context of the agent you're working with prior to using `/speckit.plan` or follow-up commands. |
+| `SPECIFY_FEATURE` | Override feature detection when git metadata isn't available. Set to the feature directory name (e.g., `001-photo-albums`) to work on a specific feature without relying on branch/worktree context.<br/>\*\*Must be set in the context of the agent you're working with prior to using `/speckit.plan` or follow-up commands. |
 
 ## 📚 Core Philosophy
 
@@ -331,6 +343,7 @@ If you encounter issues with an agent, please open an issue so we can refine the
 
 - **[Complete Spec-Driven Development Methodology](./spec-driven.md)** - Deep dive into the full process
 - **[Detailed Walkthrough](#-detailed-process)** - Step-by-step implementation guide
+- **[Template Library](./templates)** - PRD/ARD/SEC templates plus the spec/plan/tasks/checklist templates used by `specify init`
 
 ---
 
@@ -433,7 +446,11 @@ delete any comments that you made, but you can't delete comments anybody else ma
 
 After this prompt is entered, you should see Claude Code kick off the planning and spec drafting process. Claude Code will also trigger some of the built-in scripts to set up the repository.
 
-Once this step is completed, you should have a new branch created (e.g., `001-create-taskify`), as well as a new specification in the `specs/001-create-taskify` directory.
+Once this step is completed, you should have a new branch created (e.g., `001-create-taskify`) or, if you selected worktree mode, a new worktree directory created for that branch. In both cases, the new specification will live in `specs/001-create-taskify`.
+
+If you are using worktrees, make sure to switch your IDE/agent to the new worktree directory before continuing with planning and implementation.
+
+You can change the git workflow mode or worktree placement later using the configure script in `.specify/scripts/<bash|powershell>/configure-worktree.*`, which updates `.specify/config.json`.
 
 The produced specification should contain a set of user stories and functional requirements, as defined in the template.
 
@@ -441,18 +458,23 @@ At this stage, your project folder contents should resemble the following:
 
 ```text
 └── .specify
+    ├── config.json
     ├── memory
     │  └── constitution.md
     ├── scripts
-    │  ├── check-prerequisites.sh
-    │  ├── common.sh
-    │  ├── create-new-feature.sh
-    │  ├── setup-plan.sh
-    │  └── update-claude-md.sh
+    │  └── bash
+    │     ├── check-prerequisites.sh
+    │     ├── common.sh
+    │     ├── configure-worktree.sh
+    │     ├── create-new-feature.sh
+    │     ├── setup-plan.sh
+    │     └── update-agent-context.sh
     ├── specs
     │  └── 001-create-taskify
     │      └── spec.md
     └── templates
+        ├── agent-file-template.md
+        ├── checklist-template.md
         ├── plan-template.md
         ├── spec-template.md
         └── tasks-template.md
@@ -502,14 +524,24 @@ The output of this step will include a number of implementation detail documents
 ```text
 .
 ├── CLAUDE.md
-├── memory
-│  └── constitution.md
-├── scripts
-│  ├── check-prerequisites.sh
-│  ├── common.sh
-│  ├── create-new-feature.sh
-│  ├── setup-plan.sh
-│  └── update-claude-md.sh
+├── .specify
+│  ├── config.json
+│  ├── memory
+│  │  └── constitution.md
+│  ├── scripts
+│  │  └── bash
+│  │     ├── check-prerequisites.sh
+│  │     ├── common.sh
+│  │     ├── configure-worktree.sh
+│  │     ├── create-new-feature.sh
+│  │     ├── setup-plan.sh
+│  │     └── update-agent-context.sh
+│  └── templates
+│     ├── agent-file-template.md
+│     ├── checklist-template.md
+│     ├── plan-template.md
+│     ├── spec-template.md
+│     └── tasks-template.md
 ├── specs
 │  └── 001-create-taskify
 │      ├── contracts
@@ -520,11 +552,6 @@ The output of this step will include a number of implementation detail documents
 │      ├── quickstart.md
 │      ├── research.md
 │      └── spec.md
-└── templates
-    ├── CLAUDE-template.md
-    ├── plan-template.md
-    ├── spec-template.md
-    └── tasks-template.md
 ```
 
 Check the `research.md` document to ensure that the right tech stack is used, based on your instructions. You can ask Claude Code to refine it if any of the components stand out, or even have it check the locally-installed version of the platform/framework you want to use (e.g., .NET).
@@ -643,7 +670,7 @@ rm gcm-linux_amd64.2.6.1.deb
 
 ## 💬 Support
 
-For support, please open a [GitHub issue](https://github.com/github/spec-kit/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
+For support, please open a [GitHub issue](https://github.com/brianluby/spec-kit/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
 
 ## 🙏 Acknowledgements
 

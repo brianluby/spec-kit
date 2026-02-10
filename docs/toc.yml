@@ -11,6 +11,8 @@
       href: quickstart.md
     - name: Upgrade
       href: upgrade.md
+    - name: Worktrees
+      href: worktrees.md
 
 # Development workflows
 - name: Development

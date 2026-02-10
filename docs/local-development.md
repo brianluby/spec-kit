@@ -4,13 +4,20 @@ This guide shows how to iterate on the `specify` CLI locally without publishing 
 
 > Scripts now have both Bash (`.sh`) and PowerShell (`.ps1`) variants. The CLI auto-selects based on OS unless you pass `--script sh|ps`.
 
-## 1. Clone and Switch Branches
+## 1. Clone and Choose a Workflow
 
 ```bash
-git clone https://github.com/github/spec-kit.git
+git clone https://github.com/brianluby/spec-kit.git
 cd spec-kit
 # Work on a feature branch
 git checkout -b your-feature-branch
+```
+
+Optional: if you prefer parallel directories, use a worktree instead of switching branches:
+
+```bash
+# Create a parallel working directory for another feature
+git worktree add ../spec-kit-your-feature-branch -b your-feature-branch
 ```
 
 ## 2. Run the CLI Directly (Fastest Feedback)
@@ -60,7 +67,7 @@ You can also point uvx at a specific branch without merging:
 ```bash
 # Push your working branch first
 git push origin your-feature-branch
-uvx --from git+https://github.com/github/spec-kit.git@your-feature-branch specify init demo-branch-test --script ps
+uvx --from git+https://github.com/brianluby/spec-kit.git@your-feature-branch specify init demo-branch-test --script ps
 ```
 
 ### 4a. Absolute Path uvx (Run From Anywhere)

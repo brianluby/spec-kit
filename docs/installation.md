@@ -15,15 +15,15 @@
 The easiest way to get started is to initialize a new project:
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init <PROJECT_NAME>
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <PROJECT_NAME>
 ```
 
 Or initialize in the current directory:
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init .
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init .
 # or use the --here flag
-uvx --from git+https://github.com/github/spec-kit.git specify init --here
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init --here
 ```
 
 ### Specify AI Agent
@@ -31,10 +31,10 @@ uvx --from git+https://github.com/github/spec-kit.git specify init --here
 You can proactively specify your AI agent during initialization:
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai claude
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai gemini
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai copilot
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai codebuddy
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --ai claude
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --ai gemini
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --ai copilot
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --ai codebuddy
 ```
 
 ### Specify Script Type (Shell vs PowerShell)
@@ -50,16 +50,34 @@ Auto behavior:
 Force a specific script type:
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --script sh
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --script ps
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --script sh
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --script ps
 ```
+
+Only the selected script variant is copied into your project under `.specify/scripts/<bash|powershell>`.
+
+### Git Workflow Mode (Branch vs Worktree)
+
+By default, Spec Kit creates features on branches. You can opt into worktree mode to get a parallel working directory per feature:
+
+```bash
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --git-mode worktree --worktree-strategy sibling
+```
+
+Worktree placement strategies:
+
+- `sibling`: worktrees next to your repo
+- `nested`: worktrees under `.worktrees/` inside the repo
+- `custom`: a custom absolute path (use `--worktree-path`)
+
+You can change the mode later using `.specify/scripts/<bash|powershell>/configure-worktree.*`, which updates `.specify/config.json`.
 
 ### Ignore Agent Tools Check
 
 If you prefer to get the templates without checking for the right tools:
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai claude --ignore-agent-tools
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <project_name> --ai claude --ignore-agent-tools
 ```
 
 ## Verification
@@ -70,7 +88,7 @@ After initialization, you should see the following commands available in your AI
 - `/speckit.plan` - Generate implementation plans  
 - `/speckit.tasks` - Break down into actionable tasks
 
-The `.specify/scripts` directory will contain both `.sh` and `.ps1` scripts.
+The `.specify/scripts/<bash|powershell>` directory will contain the scripts for your selected shell variant.
 
 ## Troubleshooting
 

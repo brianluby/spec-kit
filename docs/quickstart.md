@@ -8,7 +8,7 @@ This guide will help you get started with Spec-Driven Development using Spec Kit
 ## The 6-Step Process
 
 > [!TIP]
-> **Context Awareness**: Spec Kit commands automatically detect the active feature based on your current Git branch (e.g., `001-feature-name`). To switch between different specifications, simply switch Git branches.
+> **Context Awareness**: Spec Kit commands automatically detect the active feature based on your current Git branch (e.g., `001-feature-name`). If you use worktree mode, switch your IDE/agent into the new worktree directory after feature creation, then continue running `/speckit.*` commands there.
 
 ### Step 1: Install Specify
 
@@ -16,17 +16,23 @@ This guide will help you get started with Spec-Driven Development using Spec Kit
 
 ```bash
 # Create a new project directory
-uvx --from git+https://github.com/github/spec-kit.git specify init <PROJECT_NAME>
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <PROJECT_NAME>
 
 # OR initialize in the current directory
-uvx --from git+https://github.com/github/spec-kit.git specify init .
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init .
 ```
 
 Pick script type explicitly (optional):
 
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init <PROJECT_NAME> --script ps  # Force PowerShell
-uvx --from git+https://github.com/github/spec-kit.git specify init <PROJECT_NAME> --script sh  # Force POSIX shell
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <PROJECT_NAME> --script ps  # Force PowerShell
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <PROJECT_NAME> --script sh  # Force POSIX shell
+```
+
+Optional: choose a git workflow mode during init. Worktree mode creates a parallel working directory per feature.
+
+```bash
+uvx --from git+https://github.com/brianluby/spec-kit.git specify init <PROJECT_NAME> --git-mode worktree --worktree-strategy sibling
 ```
 
 ### Step 2: Define Your Constitution
@@ -160,5 +166,5 @@ Finally, implement the solution:
 ## Next Steps
 
 - Read the [complete methodology](../spec-driven.md) for in-depth guidance
-- Check out [more examples](../templates) in the repository
-- Explore the [source code on GitHub](https://github.com/github/spec-kit)
+- Check out [more examples](../templates) in the repository, including PRD/ARD/SEC templates and updated checklist templates
+- Explore the [source code on GitHub](https://github.com/brianluby/spec-kit)
