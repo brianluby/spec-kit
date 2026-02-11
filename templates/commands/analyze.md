@@ -41,6 +41,13 @@ For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot
 
 ### 2. Load Artifacts (Progressive Disclosure)
 
+Artifact reuse rules:
+
+- If an artifact was already loaded earlier in this conversation and has not changed (same path and newer content not detected), reuse prior extracted context instead of re-reading the full file.
+- Re-read a full artifact only when required (file changed, first access, or missing sections needed for a finding).
+- Prefer targeted section reads over whole-file reads.
+- Avoid repetitive "I already loaded X, now re-loading Y" narration; keep load reporting minimal.
+
 Load only the minimal necessary context from each artifact:
 
 **From spec.md (and/or prd.md if present):**
