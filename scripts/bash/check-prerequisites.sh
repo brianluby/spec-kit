@@ -158,18 +158,18 @@ fi
 
 # Output results
 if $JSON_MODE; then
-    # Build JSON array of documents
+    # Build JSON array of documents using jq for proper escaping
     if [[ ${#docs[@]} -eq 0 ]]; then
-        json_docs="[]"
+        json_docs_array='[]'
     else
-        json_docs=$(printf '"%s",' "${docs[@]}")
-        json_docs="[${json_docs%,}]"
+        # Use jq to safely build JSON array from docs
+        json_docs_array=$(printf '%s\n' "${docs[@]}" | jq -R . | jq -s .)
     fi
     
     # Use jq for proper JSON escaping of path variables
     jq -n \
         --arg feature_dir "$FEATURE_DIR" \
-        --argjson available_docs "$json_docs" \
+        --argjson available_docs "$json_docs_array" \
         --arg prd "$PRD" \
         --arg ard "$ARD" \
         --arg sec "$SEC" \
