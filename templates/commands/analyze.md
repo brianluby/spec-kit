@@ -27,14 +27,14 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items ac
 
 ### 1. Initialize Analysis Context
 
-Run `{SCRIPT}` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
+Run `{SCRIPT}` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Also parse optional resolved artifact paths when present: `PRD`, `ARD`, `SEC`. Derive absolute paths:
 
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md
 - TASKS = FEATURE_DIR/tasks.md
-- PRD = FEATURE_DIR/prd.md (optional — formal workflow)
-- AR = FEATURE_DIR/ar.md (optional — formal workflow)
-- SEC = FEATURE_DIR/sec.md (optional — formal workflow)
+- PRD = resolved `PRD` path when provided, else FEATURE_DIR/prd.md (optional — formal workflow; docs/PRD fallback allowed)
+- AR = resolved `ARD` path when provided, else FEATURE_DIR/ar.md (optional — formal workflow; docs/AR fallback allowed)
+- SEC = resolved `SEC` path when provided, else FEATURE_DIR/sec.md (optional — formal workflow; docs/SEC fallback allowed)
 
 Abort with an error message if any required file (spec.md or prd.md, plan.md, tasks.md) is missing (instruct the user to run missing prerequisite command). At least one requirements document (spec.md or prd.md) must exist.
 For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").

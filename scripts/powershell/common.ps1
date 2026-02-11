@@ -92,11 +92,45 @@ function Get-FeatureDir {
     Join-Path $RepoRoot "specs/$Branch"
 }
 
+function Resolve-FormalDocPath {
+    param(
+        [string]$RepoRoot,
+        [string]$FeatureDir,
+        [string]$LocalFilename, # prd.md | ar.md | sec.md
+        [string]$DocsSubdir     # PRD | AR | SEC
+    )
+
+    $localPath = Join-Path $FeatureDir $LocalFilename
+    if (Test-Path $localPath -PathType Leaf) {
+        return $localPath
+    }
+
+    $featureBase = Split-Path $FeatureDir -Leaf
+    if ($featureBase -match '^(\d{3})-') {
+        $prefix = $matches[1]
+        $docsDir = Join-Path $RepoRoot "docs/$DocsSubdir"
+        if (Test-Path $docsDir -PathType Container) {
+            $match = Get-ChildItem -Path $docsDir -Filter "$prefix-*.md" -File -ErrorAction SilentlyContinue |
+                Sort-Object Name |
+                Select-Object -First 1
+            if ($match) {
+                return $match.FullName
+            }
+        }
+    }
+
+    # Return feature-local default even when missing; callers may still test existence.
+    return $localPath
+}
+
 function Get-FeaturePathsEnv {
     $repoRoot = Get-RepoRoot
     $currentBranch = Get-CurrentBranch
     $hasGit = Test-HasGit
     $featureDir = Get-FeatureDir -RepoRoot $repoRoot -Branch $currentBranch
+    $prdPath = Resolve-FormalDocPath -RepoRoot $repoRoot -FeatureDir $featureDir -LocalFilename 'prd.md' -DocsSubdir 'PRD'
+    $ardPath = Resolve-FormalDocPath -RepoRoot $repoRoot -FeatureDir $featureDir -LocalFilename 'ar.md' -DocsSubdir 'AR'
+    $secPath = Resolve-FormalDocPath -RepoRoot $repoRoot -FeatureDir $featureDir -LocalFilename 'sec.md' -DocsSubdir 'SEC'
     
     [PSCustomObject]@{
         REPO_ROOT     = $repoRoot
@@ -110,9 +144,9 @@ function Get-FeaturePathsEnv {
         DATA_MODEL    = Join-Path $featureDir 'data-model.md'
         QUICKSTART    = Join-Path $featureDir 'quickstart.md'
         CONTRACTS_DIR = Join-Path $featureDir 'contracts'
-        PRD           = Join-Path $featureDir 'prd.md'
-        ARD           = Join-Path $featureDir 'ar.md'
-        SEC           = Join-Path $featureDir 'sec.md'
+        PRD           = $prdPath
+        ARD           = $ardPath
+        SEC           = $secPath
     }
 }
 
@@ -173,4 +207,3 @@ function Get-ConfigValue {
         return $Default
     }
 }
-

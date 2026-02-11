@@ -76,6 +76,9 @@ if ($PathsOnly) {
             FEATURE_SPEC = $paths.FEATURE_SPEC
             IMPL_PLAN    = $paths.IMPL_PLAN
             TASKS        = $paths.TASKS
+            PRD          = $paths.PRD
+            ARD          = $paths.ARD
+            SEC          = $paths.SEC
         } | ConvertTo-Json -Compress
     } else {
         Write-Output "REPO_ROOT: $($paths.REPO_ROOT)"
@@ -136,6 +139,9 @@ if ($Json) {
     [PSCustomObject]@{ 
         FEATURE_DIR = $paths.FEATURE_DIR
         AVAILABLE_DOCS = $docs 
+        PRD = $paths.PRD
+        ARD = $paths.ARD
+        SEC = $paths.SEC
     } | ConvertTo-Json -Compress
 } else {
     # Text output

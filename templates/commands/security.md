@@ -24,11 +24,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. **Setup**: Run `{SCRIPT}` from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. **Setup**: Run `{SCRIPT}` from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Also parse optional resolved paths `PRD` and `ARD` (absolute) when provided. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Require PRD**: Check that `prd.md` is present in AVAILABLE_DOCS or exists at `FEATURE_DIR/prd.md`.
+2. **Require PRD**: Check that `prd.md` is present in AVAILABLE_DOCS or resolve it via: `PRD` path from script, then `FEATURE_DIR/prd.md`, then `docs/PRD/<feature-prefix>-*.md`.
    - If missing: ERROR "prd.md not found. Run /speckit.prd first to create the Product Requirements Document."
-   - Read `prd.md` and extract:
+   - Read the resolved PRD document and extract:
      - Data Model entities and their fields
      - Interface Contract (exposure points)
      - Must Have / Should Have requirements
@@ -36,7 +36,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - Technical Constraints
      - Security Considerations section (if filled)
 
-3. **Optional context**: If `ar.md` exists in FEATURE_DIR, read it for:
+3. **Optional context**: If AR exists (resolved `ARD` path, or FEATURE_DIR/ar.md, or docs/AR/<feature-prefix>-*.md), read it for:
    - Component architecture and data flow
    - External dependencies and services
    - Interface definitions
