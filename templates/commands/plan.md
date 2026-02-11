@@ -35,9 +35,9 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Keep status updates concise; avoid repetitive "re-confirm/re-load" narration for unchanged artifacts.
 
 3. **Load context**: Read FEATURE_SPEC and `/memory/constitution.md`. Load IMPL_PLAN template (already copied). Also discover formal workflow artifacts using this precedence:
-   - PRD: `FEATURE_DIR/prd.md`, then `docs/PRD/<feature-prefix>-*.md`
-   - AR: `FEATURE_DIR/ar.md`, then `docs/AR/<feature-prefix>-*.md`
-   - SEC: `FEATURE_DIR/sec.md`, then `docs/SEC/<feature-prefix>-*.md`
+   - PRD: `SPECS_DIR/prd.md`, then `docs/PRD/<feature-prefix>-*.md`
+   - AR: `SPECS_DIR/ar.md`, then `docs/AR/<feature-prefix>-*.md`
+   - SEC: `SPECS_DIR/sec.md`, then `docs/SEC/<feature-prefix>-*.md`
    - If PRD exists: Read it as enriched requirements source (MoSCoW requirements, prioritized user stories, technical constraints). Use alongside or in preference to spec.md for requirements extraction.
    - If AR exists: Read it for architecture decisions, component design, and technical constraints. Incorporate selected option and implementation guardrails into the plan.
    - If SEC exists: Read it for security requirements (SEC-* IDs), trust boundaries, and data classifications. Incorporate security tasks into the plan.
