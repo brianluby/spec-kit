@@ -91,7 +91,7 @@ check_feature_branch "$CURRENT_BRANCH" "$HAS_GIT" || exit 1
 # If paths-only mode, output paths and exit (support JSON + paths-only combined)
 if $PATHS_ONLY; then
     if $JSON_MODE; then
-        # Minimal JSON paths payload (no validation performed)
+        # Minimal JSON paths payload (no validation performed) - use jq for proper JSON escaping
         jq -n \
             --arg repo_root "$REPO_ROOT" \
             --arg branch "$CURRENT_BRANCH" \
@@ -102,7 +102,7 @@ if $PATHS_ONLY; then
             --arg prd "$PRD" \
             --arg ard "$ARD" \
             --arg sec "$SEC" \
-            '{REPO_ROOT:$repo_root,BRANCH:$branch,FEATURE_DIR:$feature_dir,FEATURE_SPEC:$feature_spec,IMPL_PLAN:$impl_plan,TASKS:$tasks,PRD:$prd,ARD:$ard,SEC:$sec}'
+            '{REPO_ROOT: $repo_root, BRANCH: $branch, FEATURE_DIR: $feature_dir, FEATURE_SPEC: $feature_spec, IMPL_PLAN: $impl_plan, TASKS: $tasks, PRD: $prd, ARD: $ard, SEC: $sec}'
     else
         echo "REPO_ROOT: $REPO_ROOT"
         echo "BRANCH: $CURRENT_BRANCH"
@@ -166,14 +166,14 @@ if $JSON_MODE; then
         json_docs_array=$(printf '%s\n' "${docs[@]}" | jq -R . | jq -s .)
     fi
     
-    # Use jq for safe JSON generation with proper escaping
+    # Use jq for proper JSON escaping of path variables
     jq -n \
         --arg feature_dir "$FEATURE_DIR" \
         --argjson available_docs "$json_docs_array" \
         --arg prd "$PRD" \
         --arg ard "$ARD" \
         --arg sec "$SEC" \
-        '{FEATURE_DIR:$feature_dir,AVAILABLE_DOCS:$available_docs,PRD:$prd,ARD:$ard,SEC:$sec}'
+        '{FEATURE_DIR: $feature_dir, AVAILABLE_DOCS: $available_docs, PRD: $prd, ARD: $ard, SEC: $sec}'
 else
     # Text output
     echo "FEATURE_DIR:$FEATURE_DIR"
