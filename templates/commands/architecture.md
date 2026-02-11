@@ -24,9 +24,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. **Setup**: Run `{SCRIPT}` from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Also parse optional resolved PRD path `PRD` (absolute) when provided. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. **Setup**: Run `{SCRIPT}` from repo root and parse JSON for `FEATURE_DIR`, `AVAILABLE_DOCS`, and `PRD` (absolute path). The script always outputs a `PRD` field, but the file may not exist yet. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Require PRD**: Check that `prd.md` is present in AVAILABLE_DOCS or resolve it via: `PRD` path from script, then `FEATURE_DIR/prd.md`, then `docs/PRD/<feature-prefix>-*.md`.
+2. **Require PRD**: Check if the `PRD` path from the script exists; if not, try `FEATURE_DIR/prd.md`, then check `AVAILABLE_DOCS` for `prd.md`, then try `docs/PRD/<feature-prefix>-*.md`.
    - If missing: ERROR "prd.md not found. Run /speckit.prd first to create the Product Requirements Document."
    - Read the resolved PRD document and extract:
      - Must Have / Should Have requirements (M-1, M-2, S-1, etc.)
