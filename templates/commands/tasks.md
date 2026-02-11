@@ -24,7 +24,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. **Setup**: Run `{SCRIPT}` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. Also parse optional absolute artifact paths if provided by the script: `PRD`, `ARD`, `SEC`. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. **Setup**: Run `{SCRIPT}` from repo root and parse `FEATURE_DIR`, `AVAILABLE_DOCS`, `PRD`, `ARD`, and `SEC` (absolute paths). The script always outputs `PRD`, `ARD`, and `SEC` fields, but the files may not exist yet. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 2. **Artifact reuse and token discipline**:
    - If an artifact was already loaded earlier in this conversation and has not changed (same path and newer content not detected), reuse prior extracted context instead of re-reading the full file.
@@ -35,9 +35,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 3. **Load design documents**:
    - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
    - **Optional**:
-     - PRD: only read from a resolved `PRD` path if the file exists or `AVAILABLE_DOCS` indicates PRD is available; otherwise try `FEATURE_DIR/prd.md` then `docs/PRD/<feature-prefix>-*.md`
-     - AR: only read from a resolved `ARD` path if the file exists or `AVAILABLE_DOCS` indicates AR is available; otherwise try `FEATURE_DIR/ar.md` then `docs/AR/<feature-prefix>-*.md`
-     - SEC: only read from a resolved `SEC` path if the file exists or `AVAILABLE_DOCS` indicates SEC is available; otherwise try `FEATURE_DIR/sec.md` then `docs/SEC/<feature-prefix>-*.md`
+     - PRD: Check if the `PRD` path from the script exists; if not, try `FEATURE_DIR/prd.md`, then check `AVAILABLE_DOCS` for `prd.md`, then try `docs/PRD/<feature-prefix>-*.md`
+     - AR: Check if the `ARD` path from the script exists; if not, try `FEATURE_DIR/ar.md`, then check `AVAILABLE_DOCS` for `ar.md`, then try `docs/AR/<feature-prefix>-*.md`
+     - SEC: Check if the `SEC` path from the script exists; if not, try `FEATURE_DIR/sec.md`, then check `AVAILABLE_DOCS` for `sec.md`, then try `docs/SEC/<feature-prefix>-*.md`
      - data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
    - Note: Not all projects have all documents. Generate tasks based on what's available.
 
