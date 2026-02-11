@@ -35,9 +35,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 3. **Load design documents**:
    - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
    - **Optional**:
-     - PRD from resolved `PRD` path when present; otherwise try `FEATURE_DIR/prd.md` then `docs/PRD/<feature-prefix>-*.md`
-     - AR from resolved `ARD` path when present; otherwise try `FEATURE_DIR/ar.md` then `docs/AR/<feature-prefix>-*.md`
-     - SEC from resolved `SEC` path when present; otherwise try `FEATURE_DIR/sec.md` then `docs/SEC/<feature-prefix>-*.md`
+     - PRD: only read from a resolved `PRD` path if the file exists or `AVAILABLE_DOCS` indicates PRD is available; otherwise try `FEATURE_DIR/prd.md` then `docs/PRD/<feature-prefix>-*.md`
+     - AR: only read from a resolved `ARD` path if the file exists or `AVAILABLE_DOCS` indicates AR is available; otherwise try `FEATURE_DIR/ar.md` then `docs/AR/<feature-prefix>-*.md`
+     - SEC: only read from a resolved `SEC` path if the file exists or `AVAILABLE_DOCS` indicates SEC is available; otherwise try `FEATURE_DIR/sec.md` then `docs/SEC/<feature-prefix>-*.md`
      - data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
    - Note: Not all projects have all documents. Generate tasks based on what's available.
 
