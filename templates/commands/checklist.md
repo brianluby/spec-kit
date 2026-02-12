@@ -91,12 +91,12 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 5. **Generate checklist** - Create "Unit Tests for Requirements":
    - Create `FEATURE_DIR/checklists/` directory if it doesn't exist
-   - Generate unique checklist filename:
-     - Use short, descriptive name based on domain (e.g., `ux.md`, `api.md`, `security.md`)
+   - Generate checklist filename based on domain:
+     - Use short, descriptive name (e.g., `ux.md`, `api.md`, `security.md`)
      - Format: `[domain].md`
-     - If file exists, append to existing file
-   - Number items sequentially starting from CHK001
-   - Each `/speckit.checklist` run creates a NEW file (never overwrites existing checklists)
+     - If file already exists for this domain, append new items to the existing file (continue numbering from last CHK number)
+     - If file does not exist, create a new file
+   - Number items sequentially starting from CHK001 (or next available if appending)
 
    **CORE PRINCIPLE - Test the Requirements, Not the Implementation**:
    Every checklist item MUST evaluate the REQUIREMENTS THEMSELVES for:
@@ -208,13 +208,13 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. **Structure Reference**: Generate the checklist following the canonical template in `templates/checklist-template.md` for title, meta section, category headings, and ID formatting. If template is unavailable, use: H1 title, purpose/created meta lines, `##` category sections containing `- [ ] CHK### <requirement item>` lines with globally incrementing IDs starting at CHK001.
 
-7. **Report**: Output full path to created checklist, item count, and remind user that each run creates a new file. Summarize:
+7. **Report**: Output full path to created/updated checklist, item count, and whether items were appended or a new file was created. Summarize:
    - Focus areas selected
    - Depth level
    - Actor/timing
    - Any explicit user-specified must-have items incorporated
 
-**Important**: Each `/speckit.checklist` command invocation creates a checklist file using short, descriptive names unless file already exists. This allows:
+**Important**: Each `/speckit.checklist` command invocation creates or appends to a checklist file using short, descriptive domain names. This allows:
 
 - Multiple checklists of different types (e.g., `ux.md`, `test.md`, `security.md`)
 - Simple, memorable filenames that indicate checklist purpose

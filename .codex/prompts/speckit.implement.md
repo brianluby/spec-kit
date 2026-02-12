@@ -1,8 +1,5 @@
 ---
 description: Execute the implementation plan by processing and executing all tasks defined in tasks.md
-scripts:
-  sh: scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks
-  ps: scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks
 ---
 
 ## User Input
@@ -15,15 +12,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. Run `{SCRIPT}` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Artifact reuse and token discipline**:
-   - If an artifact was already loaded earlier in this conversation and has not changed (same path and newer content not detected), reuse prior extracted context instead of re-reading the full file.
-   - Re-read a full artifact only when required (file changed, first access, or current task depends on sections not yet extracted).
-   - Prefer targeted section reads over whole-file reads (e.g., specific task phase, specific requirement block).
-   - Keep progress narration concise; avoid repetitive "loading/re-loading" messages for unchanged files.
-
-3. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
+2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
    - Scan all checklist files in the checklists/ directory
    - For each checklist, count:
      - Total items: All lines matching `- [ ]` or `- [X]` or `- [x]`
@@ -48,23 +39,13 @@ You **MUST** consider the user input before proceeding (if not empty).
      - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
      - Wait for user response before continuing
      - If user says "no" or "wait" or "stop", halt execution
-     - If user says "yes" or "proceed" or "continue", proceed to step 5
+     - If user says "yes" or "proceed" or "continue", proceed to step 3
 
    - **If all checklists are complete**:
      - Display the table showing all checklists passed
-     - Automatically proceed to step 5
+     - Automatically proceed to step 3
 
-4. **Execution mode decision (interactive)**:
-   - Ask once before implementation starts: "Do you want to use agent teams/sub-agents for parallelizable work? (yes/no)"
-   - If user says **yes**:
-     - Use agent teams only for tasks explicitly marked parallelizable (e.g., `[P]`) and only when file ownership does not overlap.
-     - Keep one coordinator thread responsible for ordering, dependency enforcement, and final integration.
-     - After each agent batch, reconcile outputs, run validations, and update `tasks.md` statuses before continuing.
-   - If user says **no**:
-     - Execute in single-agent mode and continue normally.
-   - If the runtime does not support agent teams/sub-agents, state that clearly and continue in single-agent mode.
-
-5. Load and analyze the implementation context:
+3. Load and analyze the implementation context:
    - **REQUIRED**: Read tasks.md for the complete task list and execution plan
    - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
    - **IF EXISTS**: Read data-model.md for entities and relationships
@@ -72,7 +53,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read research.md for technical decisions and constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
 
-6. **Project Setup Verification**:
+4. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
@@ -116,27 +97,27 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
    - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
 
-7. Parse tasks.md structure and extract:
+5. Parse tasks.md structure and extract:
    - **Task phases**: Setup, Tests, Core, Integration, Polish
    - **Task dependencies**: Sequential vs parallel execution rules
    - **Task details**: ID, description, file paths, parallel markers [P]
    - **Execution flow**: Order and dependency requirements
 
-8. Execute implementation following the task plan:
+6. Execute implementation following the task plan:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
    - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-9. Implementation execution rules:
+7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
 
-10. Progress tracking and error handling:
+8. Progress tracking and error handling:
    - Report progress after each completed task
    - Halt execution if any non-parallel task fails
    - For parallel tasks [P], continue with successful tasks, report failed ones
@@ -144,7 +125,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Suggest next steps if implementation cannot proceed
    - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
-11. Completion validation:
+9. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
