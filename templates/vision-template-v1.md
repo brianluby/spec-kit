@@ -187,10 +187,10 @@ PRDs should trace back to at least one strategic goal.
 
 ```mermaid
 graph TD
-    G-1["G-1: [Goal 1]"] --> G-2["G-2: [Goal 2]"]
-    G-1 --> G-3["G-3: [Goal 3]"]
-    G-2 --> G-4["G-4: [Goal 4]"]
-    G-3 --> G-4
+    G1["G-1: [Goal 1]"] --> G2["G-2: [Goal 2]"]
+    G1 --> G3["G-3: [Goal 3]"]
+    G2 --> G4["G-4: [Goal 4]"]
+    G3 --> G4
 ```
 
 ---
