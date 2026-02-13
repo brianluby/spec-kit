@@ -1,5 +1,5 @@
 {
-  "git_mode": "branch",
+  "git_mode": "worktree",
   "worktree_strategy": "sibling",
   "worktree_custom_path": ""
 }

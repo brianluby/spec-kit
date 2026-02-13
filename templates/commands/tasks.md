@@ -32,7 +32,12 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Prefer targeted section reads over whole-file reads.
    - Keep status updates concise; do not repeatedly announce re-loading unchanged artifacts.
 
-3. **Load design documents**:
+3. **Discovery source preference**:
+   - If Serena is available in the current runtime/session, use Serena project indexing/navigation first for file and symbol discovery.
+   - If Serena is unavailable, incomplete, or results need verification, use filesystem search (`rg`) as fallback.
+   - Keep discovery scoped to files relevant to this feature to avoid unnecessary context expansion.
+
+4. **Load design documents**:
    - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
    - **Optional**:
      - PRD: Check if the `PRD` path from the script exists; if not, try `FEATURE_DIR/prd.md`, then check `AVAILABLE_DOCS` for `prd.md`, then try `docs/PRD/<feature-prefix>-*.md`
@@ -41,7 +46,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
    - Note: Not all projects have all documents. Generate tasks based on what's available.
 
-4. **Execute task generation workflow**:
+5. **Execute task generation workflow**:
    - Load plan.md and extract tech stack, libraries, project structure
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If prd.md exists: Use as primary requirements source — extract MoSCoW requirements (M-1, S-1, etc.) and prioritized user stories. Prefer prd.md user stories over spec.md when both exist.
@@ -55,7 +60,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create parallel execution examples per user story
    - Validate task completeness (each user story has all needed tasks, independently testable)
 
-5. **Generate tasks.md**: Use `templates/tasks-template.md` as structure, fill with:
+6. **Generate tasks.md**: Use `templates/tasks-template.md` as structure, fill with:
    - Correct feature name from plan.md
    - Phase 1: Setup tasks (project initialization)
    - Phase 2: Foundational tasks (blocking prerequisites for all user stories)
@@ -68,7 +73,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Parallel execution examples per story
    - Implementation strategy section (MVP first, incremental delivery)
 
-6. **Report**: Output path to generated tasks.md and summary:
+7. **Report**: Output path to generated tasks.md and summary:
    - Total task count
    - Task count per user story
    - Parallel opportunities identified

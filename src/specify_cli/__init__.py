@@ -440,6 +440,32 @@ def _generate_copilot_prompts(agents_dir: Path, prompts_dir: Path) -> None:
         prompt_file.write_text(f"---\nagent: {basename}\n---\n", encoding="utf-8")
 
 
+def _is_constitution_file(path: Path) -> bool:
+    """Return True when path points to a memory/constitution.md file."""
+    return len(path.parts) >= 2 and path.parts[-2:] == ("memory", "constitution.md")
+
+
+def _has_non_empty_file(path: Path) -> bool:
+    """Return True if path exists as a non-empty file."""
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def _copy_tree_preserving_constitution(src_dir: Path, dest_dir: Path) -> None:
+    """Copy src_dir into dest_dir, preserving an existing non-empty constitution.md."""
+    for src_file in src_dir.rglob("*"):
+        if not src_file.is_file():
+            continue
+        rel_path = src_file.relative_to(src_dir)
+        dest_file = dest_dir / rel_path
+        if _is_constitution_file(dest_file) and _has_non_empty_file(dest_file):
+            continue
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_file, dest_file)
+
+
 def _copy_shared_assets(
     data_dir: Path,
     project_path: Path,
@@ -451,7 +477,7 @@ def _copy_shared_assets(
     # memory/
     src_memory = data_dir / "memory"
     if src_memory.is_dir():
-        shutil.copytree(src_memory, specify_dir / "memory", dirs_exist_ok=True)
+        _copy_tree_preserving_constitution(src_memory, specify_dir / "memory")
 
     # scripts — only the selected variant
     src_scripts = data_dir / "scripts"
@@ -1183,6 +1209,9 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                                         # Special handling for .vscode/settings.json - merge instead of overwrite
                                         if dest_file.name == "settings.json" and dest_file.parent.name == ".vscode":
                                             handle_vscode_settings(sub_item, dest_file, rel_path, verbose, tracker)
+                                        elif _is_constitution_file(dest_file) and _has_non_empty_file(dest_file):
+                                            # Preserve existing custom constitution on upgrade/re-init.
+                                            continue
                                         else:
                                             shutil.copy2(sub_item, dest_file)
                             else:
@@ -1926,4 +1955,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
