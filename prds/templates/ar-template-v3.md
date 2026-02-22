@@ -8,15 +8,8 @@
 > **Deciders:** [names/roles of decision makers] <!-- @human-required -->
 
 ---
-
-## Review Tier Legend
-
-| Marker | Tier | Speckit Behavior |
-|--------|------|------------------|
-| 🔴 `@human-required` | Human Generated | Prompt human to author; blocks until complete |
-| 🟡 `@human-review` | LLM + Human Review | LLM drafts → prompt human to confirm/edit; blocks until confirmed |
-| 🟢 `@llm-autonomous` | LLM Autonomous | LLM completes; no prompt; logged for audit |
-| ⚪ `@auto` | Auto-generated | System fills (timestamps, links); no prompt |
+<!-- Legend: 🔴 @human-required | 🟡 @human-review | 🟢 @llm-autonomous | ⚪ @auto -->
+> **Context Required for Agents:** [List 1-3 critical file paths the agent MUST read before implementing] <!-- @human-required -->
 
 ---
 
@@ -91,6 +84,7 @@ CRITICAL: Each requirement MUST reference a specific PRD requirement ID.
 Do not invent or infer requirements — extract only from the linked PRD.
 Human must confirm this mapping is accurate.
 -->
+<!-- @agent: Only extract requirements explicitly defined in the linked PRD. Do not generate new requirements. -->
 
 | PRD Req ID | Requirement Summary | Architectural Implication |
 |------------|---------------------|---------------------------|
@@ -396,10 +390,10 @@ Human must review and confirm these are the correct guardrails.
 ## Implementation Guidance
 
 ### Suggested Implementation Order 🟢 `@llm-autonomous`
-1. [First component/layer to build]
-2. [Second component/layer to build]
-3. [Integration points]
-4. [Final assembly]
+1. [First component/layer to build] -> **Target File:** `[file path]`
+2. [Second component/layer to build] -> **Target File:** `[file path]`
+3. [Integration points] -> **Target File:** `[file path]`
+4. [Final assembly] -> **Target File:** `[file path]`
 
 ### Testing Strategy 🟢 `@llm-autonomous`
 
@@ -492,25 +486,6 @@ gantt
 
 ---
 
-## Changelog ⚪ `@auto`
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 0.1 | YYYY-MM-DD | [name] | Initial proposal |
-| 1.0 | YYYY-MM-DD | [name] | Accepted after review |
-
----
-
-## Decision Record ⚪ `@auto`
-
-| Date | Event | Details |
-|------|-------|---------|
-| YYYY-MM-DD | Proposed | Initial draft created |
-| YYYY-MM-DD | Reviewed | Feedback from [reviewers] |
-| YYYY-MM-DD | Accepted | Approved by [deciders] |
-
----
-
 ## Traceability Matrix 🟢 `@llm-autonomous`
 
 <!-- Ensures all PRD requirements are addressed by this architecture -->
@@ -526,14 +501,14 @@ gantt
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Accepted:
-- [ ] All PRD Must Have requirements appear in Driving Requirements
-- [ ] Option 0 (Status Quo) is documented unless greenfield
-- [ ] Simplest Implementation comparison is completed
-- [ ] Decision drivers are prioritized and addressed
-- [ ] At least 2 options were seriously considered
-- [ ] Constraints distinguish inherited vs. new
-- [ ] Component names are consistent across all diagrams and tables
-- [ ] Implementation guardrails reference specific PRD constraints
-- [ ] Rollback triggers and authority are defined
-- [ ] Security review is linked or N/A documented
-- [ ] No open questions blocking implementation
+- [ ] Agent has verified that all PRD Must Have requirements appear in Driving Requirements
+- [ ] Agent has verified that Option 0 (Status Quo) is documented unless greenfield
+- [ ] Agent has verified that Simplest Implementation comparison is completed
+- [ ] Agent has verified that Decision drivers are prioritized and addressed
+- [ ] Agent has verified that At least 2 options were seriously considered
+- [ ] Agent has verified that Constraints distinguish inherited vs. new
+- [ ] Agent has verified that Component names are consistent across all diagrams and tables
+- [ ] Agent has verified that Implementation guardrails reference specific PRD constraints
+- [ ] Agent has verified that Rollback triggers and authority are defined
+- [ ] Agent has verified that Security review is linked or N/A documented
+- [ ] Agent has verified that No open questions blocking implementation

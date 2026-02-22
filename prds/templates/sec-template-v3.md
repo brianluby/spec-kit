@@ -8,15 +8,8 @@
 > **Risk Level:** Low | Medium | High | Critical <!-- @human-required -->
 
 ---
-
-## Review Tier Legend
-
-| Marker | Tier | Speckit Behavior |
-|--------|------|------------------|
-| 🔴 `@human-required` | Human Generated | Prompt human to author; blocks until complete |
-| 🟡 `@human-review` | LLM + Human Review | LLM drafts → prompt human to confirm/edit; blocks until confirmed |
-| 🟢 `@llm-autonomous` | LLM Autonomous | LLM completes; no prompt; logged for audit |
-| ⚪ `@auto` | Auto-generated | System fills (timestamps, links); no prompt |
+<!-- Legend: 🔴 @human-required | 🟡 @human-review | 🟢 @llm-autonomous | ⚪ @auto -->
+> **Context Required for Agents:** [List 1-3 critical file paths the agent MUST read before reviewing] <!-- @human-required -->
 
 ---
 
@@ -434,15 +427,6 @@ Does this feature have regulatory implications?
 
 ---
 
-## Changelog ⚪ `@auto`
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 0.1 | YYYY-MM-DD | [name] | Initial review |
-| 0.2 | YYYY-MM-DD | [name] | Updated after PRD revision |
-
----
-
 ## Review Sign-off 🔴 `@human-required`
 
 | Role | Name | Date | Decision |
@@ -472,15 +456,15 @@ Does this feature have regulatory implications?
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Approved:
-- [ ] Attack surface documented with auth/authz status for each exposure
-- [ ] Exposure Points table has no contradictory rows (None vs. actual endpoints)
-- [ ] All PRD Data Model entities appear in Data Inventory
-- [ ] All data elements are classified using the 4-tier model
-- [ ] Third-party dependencies and services are listed
-- [ ] CIA impact is assessed with Low/Medium/High ratings
-- [ ] Trust boundaries are identified
-- [ ] Security requirements have verification methods specified
-- [ ] Security requirements trace to PRD ACs where applicable
-- [ ] No Critical/High findings remain Open
-- [ ] Compliance N/A items have justification
-- [ ] Risk acceptance has named approver and review date
+- [ ] Agent has verified Attack surface documented with auth/authz status for each exposure
+- [ ] Agent has verified Exposure Points table has no contradictory rows (None vs. actual endpoints)
+- [ ] Agent has verified that all PRD data model entities appear in the data inventory
+- [ ] Agent has verified All data elements are classified using the 4-tier model
+- [ ] Agent has verified Third-party dependencies and services are listed
+- [ ] Agent has verified CIA impact is assessed with Low/Medium/High ratings
+- [ ] Agent has verified Trust boundaries are identified
+- [ ] Agent has verified Security requirements have verification methods specified
+- [ ] Agent has verified Security requirements trace to PRD ACs where applicable
+- [ ] Agent has verified No Critical/High findings remain Open
+- [ ] Agent has verified Compliance N/A items have justification
+- [ ] Agent has verified Risk acceptance has named approver and review date
