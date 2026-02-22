@@ -78,7 +78,7 @@ Given that feature description, do this:
 
 3. **Mode Selection** (after feature scaffolding, before spec generation):
 
-   a. Read the project default mode from config. The shell function `read_config_value "defaultMode" "balanced"` from `scripts/bash/common.sh` returns the default (falls back to `"balanced"` if not set).
+   a. Read the project default mode from config by running a concrete bash command that sources `scripts/bash/common.sh` and then calls the helper, for example: `source scripts/bash/common.sh && read_config_value "defaultMode" "balanced"`. This returns the default mode and falls back to `"balanced"` if not set.
 
    b. Present an interactive mode selection prompt to the user showing `fast`, `balanced`, and `detailed` options. Pre-select the project default value with `●` and show others with `○`. Example prompt format: `"Select execution mode for this feature:"` with each option on its own line, followed by `"Press Enter to confirm selection."`
 
