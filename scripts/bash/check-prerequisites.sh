@@ -157,7 +157,15 @@ if $INCLUDE_TASKS && [[ -f "$TASKS" ]]; then
 fi
 
 # Detect execution mode and risk triggers
-EXECUTION_MODE=$(get_execution_mode "$FEATURE_DIR")
+set +e
+EXECUTION_MODE_OUTPUT=$(get_execution_mode "$FEATURE_DIR")
+execution_mode_status=$?
+set -e
+if [ "$execution_mode_status" -ne 0 ]; then
+    EXECUTION_MODE="invalid"
+else
+    EXECUTION_MODE="$EXECUTION_MODE_OUTPUT"
+fi
 RISK_TRIGGERS=$(detect_risk_triggers "$FEATURE_SPEC")
 if [[ -n "$RISK_TRIGGERS" ]]; then
     HAS_RISK_TRIGGERS="true"
