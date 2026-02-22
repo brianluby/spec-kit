@@ -313,17 +313,38 @@ detect_risk_triggers() {
         if [[ "$keyword" =~ [[:space:]-] ]]; then
             # Multi-word or hyphenated: use plain case-insensitive match
             if echo "$content" | grep -q -i "$keyword" 2>/dev/null; then
-                matched+=("$keyword")
+                # Canonicalize multi-word/hyphenated keywords by replacing spaces with hyphens
+                local canonical="${keyword// /-}"
+                local exists=0
+                for m in "${matched[@]}"; do
+                    if [[ "$m" == "$canonical" ]]; then
+                        exists=1
+                        break
+                    fi
+                done
+                if [[ $exists -eq 0 ]]; then
+                    matched+=("$canonical")
+                fi
             fi
         else
             # Single word: use word-boundary match
             if echo "$content" | grep -q -i -w "$keyword" 2>/dev/null; then
-                matched+=("$keyword")
+                local canonical="$keyword"
+                local exists=0
+                for m in "${matched[@]}"; do
+                    if [[ "$m" == "$canonical" ]]; then
+                        exists=1
+                        break
+                    fi
+                done
+                if [[ $exists -eq 0 ]]; then
+                    matched+=("$canonical")
+                fi
             fi
         fi
     done
 
-    # Deduplicate and return space-separated
+    # Return space-separated deduplicated, canonicalized keywords
     local result=""
     for m in "${matched[@]}"; do
         if [[ -z "$result" ]]; then
