@@ -50,7 +50,7 @@ Execution steps:
 
    d. Use this quota as the limit for the questioning loop in step 5 below (replacing the default maximum of 5).
 
-   e. Scan spec for risk triggers (using the keyword catalog from `contracts/risk-triggers.md`). If triggers are detected, notify the user before starting questions: `"⚠️  Risk triggers detected in spec: [<matched keywords>]. Adding Architecture Review (AR) and Security Review (SEC) to this run. Continuing with escalated artifact set..."`
+   e. Scan spec for risk triggers (using the keyword catalog from `contracts/risk-triggers.md`). If triggers are detected, notify the user before starting questions: `"⚠️  Risk triggers detected in spec: [<matched keywords>]. This is an informational warning for later planning; Architecture Review (AR) and Security Review (SEC) escalation, if needed, will be handled during /speckit.plan, not in this /speckit.clarify run."`
 
 3. Load requirements documents with quiet fallback (do not frame missing optional files as errors):
    - Always load `FEATURE_SPEC` (`spec.md`) first if present.
