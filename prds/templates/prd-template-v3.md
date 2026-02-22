@@ -7,15 +7,8 @@
 > **Owner:** [name] <!-- @human-required -->
 
 ---
-
-## Review Tier Legend
-
-| Marker | Tier | Speckit Behavior |
-|--------|------|------------------|
-| 🔴 `@human-required` | Human Generated | Prompt human to author; blocks until complete |
-| 🟡 `@human-review` | LLM + Human Review | LLM drafts → prompt human to confirm/edit; blocks until confirmed |
-| 🟢 `@llm-autonomous` | LLM Autonomous | LLM completes; no prompt; logged for audit |
-| ⚪ `@auto` | Auto-generated | System fills (timestamps, links); no prompt |
+<!-- Legend: 🔴 @human-required | 🟡 @human-review | 🟢 @llm-autonomous | ⚪ @auto -->
+> **Context Required for Agents:** [List 1-3 critical file paths the agent MUST read before implementing] <!-- @human-required -->
 
 ---
 
@@ -127,6 +120,7 @@ Format: [Priority]-[Number] (e.g., M-1, S-2, C-1, W-1)
 Acceptance Criteria must reference these IDs.
 AR and SEC documents will trace back to these IDs.
 -->
+<!-- @agent: Do not invent requirements. Only extract from the Problem Statement. Use strict MUST/SHOULD/COULD formats. -->
 
 ### Must Have (M) — MVP, launch blockers 🔴 `@human-required`
 - [ ] **M-1:** [Requirement with clear, testable language using "shall"]
@@ -242,11 +236,11 @@ Each AC must reference a Requirement ID.
 Use Given/When/Then format — directly translatable to tests.
 -->
 
-| AC ID | Requirement | Given | When | Then |
-|-------|-------------|-------|------|------|
-| AC-1 | M-1 | [precondition] | [action] | [expected result] |
-| AC-2 | M-2 | [precondition] | [action] | [expected result] |
-| AC-3 | S-1 | [precondition] | [action] | [expected result] |
+| AC ID | Requirement | Given | When | Then | Target File | Test Command |
+|-------|-------------|-------|------|------|-------------|--------------|
+| AC-1 | M-1 | [precondition] | [action] | [expected result] | [e.g., src/api/routes.ts] | [e.g., npm test src/api/routes.test.ts] |
+| AC-2 | M-2 | [precondition] | [action] | [expected result] | [e.g., src/api/routes.ts] | [e.g., npm test src/api/routes.test.ts] |
+| AC-3 | S-1 | [precondition] | [action] | [expected result] | [e.g., src/api/routes.ts] | [e.g., npm test src/api/routes.test.ts] |
 
 ### Edge Cases 🟢 `@llm-autonomous`
 - [ ] **EC-1:** (M-1) When [edge condition], then [expected behavior]
@@ -356,15 +350,6 @@ All items must be checked before proceeding to AR or implementation.
 
 ---
 
-## Changelog ⚪ `@auto`
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 0.1 | YYYY-MM-DD | [name] | Initial draft |
-| 0.2 | YYYY-MM-DD | [name] | Added X based on review |
-
----
-
 ## Decision Log 🟡 `@human-review`
 
 | Date | Decision | Rationale | Alternatives Considered |
@@ -383,10 +368,10 @@ All items must be checked before proceeding to AR or implementation.
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Approved:
-- [ ] All requirements have unique IDs (M-1, S-2, etc.)
-- [ ] All Must Have requirements have linked acceptance criteria
-- [ ] Glossary terms are used consistently throughout
-- [ ] Diagrams use terminology from Glossary
-- [ ] Security considerations documented (or N/A justified)
-- [ ] Definition of Ready checklist is complete
-- [ ] No open questions blocking implementation
+- [ ] Agent has verified all requirements have unique IDs (M-1, S-2, etc.)
+- [ ] Agent has verified all Must Have requirements have linked acceptance criteria
+- [ ] Agent has verified Glossary terms are used consistently throughout
+- [ ] Agent has verified Diagrams use terminology from Glossary
+- [ ] Agent has verified Security considerations are documented (or N/A justified)
+- [ ] Agent has verified Definition of Ready checklist is complete
+- [ ] Agent has verified No open questions blocking implementation
