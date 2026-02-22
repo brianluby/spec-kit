@@ -482,15 +482,16 @@ def _get_constitution_version(path: Path) -> Optional[Tuple[int, int, int]]:
 
 
 def _is_customized_constitution(path: Path) -> bool:
-    """Return ``True`` when *path* is a constitution with version > 1.0.0.
+    """Return ``True`` when *path* is a constitution with an explicit version.
 
-    Version 1.0.0 is the initial fill-in; only versions that have been
-    amended (1.0.1+, 1.1.0+, 2.0.0+, etc.) are considered customized.
+    Any concrete version (including 1.0.0) that does not use the
+    ``[CONSTITUTION_VERSION]`` placeholder is considered customized and
+    will trigger an overwrite confirmation.
     """
     version = _get_constitution_version(path)
     if version is None:
         return False
-    return version > (1, 0, 0)
+    return version >= (1, 0, 0)
 
 
 def _confirm_constitution_overwrite(dest_file: Path) -> bool:
