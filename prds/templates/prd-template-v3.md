@@ -123,7 +123,7 @@ AR and SEC documents will trace back to these IDs.
 <!-- @agent: Do not invent requirements. Only extract from the Problem Statement. Use strict MUST/SHOULD/COULD formats. -->
 
 ### Must Have (M) — MVP, launch blockers 🔴 `@human-required`
-- [ ] **M-1:** [Requirement with clear, testable language using "shall"]
+- [ ] **M-1:** [Requirement with clear, testable RFC2119-style wording]
 - [ ] **M-2:** [Requirement]
 
 ### Should Have (S) — High value, not blocking 🔴 `@human-required`
