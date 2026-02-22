@@ -200,6 +200,25 @@ SEC='$sec_path'
 EOF
 }
 
+# load_feature_paths: sets all feature path variables directly in the caller's scope.
+# Use this instead of `eval $(get_feature_paths)` to avoid eval-injection risks.
+load_feature_paths() {
+    REPO_ROOT="$(get_repo_root)"
+    CURRENT_BRANCH="$(get_current_branch)"
+    has_git && HAS_GIT="true" || HAS_GIT="false"
+    FEATURE_DIR="$(find_feature_dir_by_prefix "$REPO_ROOT" "$CURRENT_BRANCH")"
+    FEATURE_SPEC="$FEATURE_DIR/spec.md"
+    IMPL_PLAN="$FEATURE_DIR/plan.md"
+    TASKS="$FEATURE_DIR/tasks.md"
+    RESEARCH="$FEATURE_DIR/research.md"
+    DATA_MODEL="$FEATURE_DIR/data-model.md"
+    QUICKSTART="$FEATURE_DIR/quickstart.md"
+    CONTRACTS_DIR="$FEATURE_DIR/contracts"
+    PRD="$(resolve_formal_doc_path "$REPO_ROOT" "$FEATURE_DIR" "prd.md" "PRD")"
+    ARD="$(resolve_formal_doc_path "$REPO_ROOT" "$FEATURE_DIR" "ar.md" "AR")"
+    SEC="$(resolve_formal_doc_path "$REPO_ROOT" "$FEATURE_DIR" "sec.md" "SEC")"
+}
+
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 
