@@ -1,5 +1,5 @@
 ---
-description: Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec.
+description: Identify underspecified areas in the current feature spec by asking mode-aware clarification questions (fast: 2, balanced: 4, detailed: 5) and encoding answers back into the spec.
 handoffs: 
   - label: Build Technical Plan
     agent: speckit.plan
@@ -32,7 +32,27 @@ Execution steps:
    - If JSON parsing fails, abort and instruct user to re-run `/speckit.specify` or verify feature branch environment.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. Load requirements documents with quiet fallback (do not frame missing optional files as errors):
+2. **Mode-Aware Question Limit**:
+   After parsing the prerequisites JSON, determine the question limit based on the execution mode:
+
+   a. Read the execution mode for the current feature:
+      - If `FEATURE_DIR/.feature-config.json` exists, read the `mode` value
+      - Otherwise, fall back to the project default from `.specify/config.json` (`defaultMode` key)
+      - If neither exists, default to `balanced`
+      - **Backward compatibility**: If `.feature-config.json` does not exist (features created before adaptive execution modes were added), display: `"Note: No execution mode configured for this feature. Defaulting to balanced. Run /speckit.specify to set a mode explicitly."` and continue with balanced mode.
+
+   b. Validate the mode is one of `fast`, `balanced`, or `detailed`. If invalid, emit: `"ERROR: Unknown execution mode '{value}'. Valid values: fast, balanced, detailed. Re-run /speckit.specify to reset."` and halt.
+
+   c. Apply the mode-specific question quota:
+      - `fast` → maximum **2** clarification questions
+      - `balanced` → maximum **4** clarification questions
+      - `detailed` → maximum **5** clarification questions (standard, no change)
+
+   d. Use this quota as the limit for the questioning loop in step 5 below (replacing the default maximum of 5).
+
+   e. Scan spec for risk triggers (using the keyword catalog from `contracts/risk-triggers.md`). If triggers are detected, notify the user before starting questions: `"⚠️  Risk triggers detected in spec: [<matched keywords>]. Adding Architecture Review (AR) and Security Review (SEC) to this run. Continuing with escalated artifact set..."`
+
+3. Load requirements documents with quiet fallback (do not frame missing optional files as errors):
    - Always load `FEATURE_SPEC` (`spec.md`) first if present.
    - Then discover PRD candidates in this order and load any that exist:
      1) `FEATURE_DIR/prd.md`
@@ -99,7 +119,7 @@ Execution steps:
    - Clarification would not materially change implementation or validation strategy
    - Information is better deferred to planning phase (note internally)
 
-3. Generate (internally) a prioritized queue of candidate clarification questions (maximum 5). Do NOT output them all at once. Apply these constraints:
+4. Generate (internally) a prioritized queue of candidate clarification questions (up to the mode-specific limit from step 2). Do NOT output them all at once. Apply these constraints:
     - Maximum of 10 total questions across the whole session.
     - Each question must be answerable with EITHER:
        - A short multiple‑choice selection (2–5 distinct, mutually exclusive options), OR
@@ -108,9 +128,9 @@ Execution steps:
     - Ensure category coverage balance: attempt to cover the highest impact unresolved categories first; avoid asking two low-impact questions when a single high-impact area (e.g., security posture) is unresolved.
     - Exclude questions already answered, trivial stylistic preferences, or plan-level execution details (unless blocking correctness).
     - Favor clarifications that reduce downstream rework risk or prevent misaligned acceptance tests.
-    - If more than 5 categories remain unresolved, select the top 5 by (Impact * Uncertainty) heuristic.
+    - If more categories remain unresolved than the question limit allows, select the top N by (Impact * Uncertainty) heuristic.
 
-4. Sequential questioning loop (interactive):
+5. Sequential questioning loop (interactive):
     - Present EXACTLY ONE question at a time.
     - For multiple‑choice questions:
        - **Analyze all options** and determine the **most suitable option** based on:
@@ -142,11 +162,11 @@ Execution steps:
     - Stop asking further questions when:
        - All critical ambiguities resolved early (remaining queued items become unnecessary), OR
        - User signals completion ("done", "good", "no more"), OR
-       - You reach 5 asked questions.
+       - You reach the mode-specific question limit (fast=2, balanced=4, detailed=5).
     - Never reveal future queued questions in advance.
     - If no valid questions exist at start, immediately report no critical ambiguities.
 
-5. Integration after EACH accepted answer (incremental update approach):
+6. Integration after EACH accepted answer (incremental update approach):
     - Maintain in-memory representation of the requirements document (spec.md or prd.md, whichever is the primary) plus the raw file contents.
     - For the first integrated answer in this session:
        - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the template if missing).
@@ -164,17 +184,17 @@ Execution steps:
     - Preserve formatting: do not reorder unrelated sections; keep heading hierarchy intact.
     - Keep each inserted clarification minimal and testable (avoid narrative drift).
 
-6. Validation (performed after EACH write plus final pass):
+7. Validation (performed after EACH write plus final pass):
    - Clarifications session contains exactly one bullet per accepted answer (no duplicates).
-   - Total asked (accepted) questions ≤ 5.
+   - Total asked (accepted) questions ≤ mode limit (fast=2, balanced=4, detailed=5).
    - Updated sections contain no lingering vague placeholders the new answer was meant to resolve.
    - No contradictory earlier statement remains (scan for now-invalid alternative choices removed).
    - Markdown structure valid; only allowed new headings: `## Clarifications`, `### Session YYYY-MM-DD`.
    - Terminology consistency: same canonical term used across all updated sections.
 
-7. Write the updated requirements document back to its source file (`prd.md` if that was the primary document, otherwise `FEATURE_SPEC`).
+8. Write the updated requirements document back to its source file (`prd.md` if that was the primary document, otherwise `FEATURE_SPEC`).
 
-8. Report completion (after questioning loop ends or early termination):
+9. Report completion (after questioning loop ends or early termination):
    - Number of questions asked & answered.
    - Path to updated spec.
    - Sections touched (list names).
@@ -186,7 +206,7 @@ Behavior rules:
 
 - If no meaningful ambiguities found (or all potential questions would be low-impact), respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding.
 - If no requirements document found (neither spec.md nor prd.md), instruct user to run `/speckit.specify` or `/speckit.prd` first (do not create a new document here).
-- Never exceed 5 total asked questions (clarification retries for a single question do not count as new questions).
+- Never exceed the mode-specific question limit: fast=2, balanced=4, detailed=5 (clarification retries for a single question do not count as new questions).
 - Avoid speculative tech stack questions unless the absence blocks functional clarity.
 - Respect user early termination signals ("stop", "done", "proceed").
 - If no questions asked due to full coverage, output a compact coverage summary (all categories Clear) then suggest advancing.

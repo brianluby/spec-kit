@@ -156,6 +156,15 @@ if $INCLUDE_TASKS && [[ -f "$TASKS" ]]; then
     docs+=("tasks.md")
 fi
 
+# Detect execution mode and risk triggers
+EXECUTION_MODE=$(get_execution_mode "$FEATURE_DIR")
+RISK_TRIGGERS=$(detect_risk_triggers "$FEATURE_SPEC")
+if [[ -n "$RISK_TRIGGERS" ]]; then
+    HAS_RISK_TRIGGERS="true"
+else
+    HAS_RISK_TRIGGERS="false"
+fi
+
 # Output results
 if $JSON_MODE; then
     # Build JSON array of documents using jq for proper escaping
@@ -165,7 +174,7 @@ if $JSON_MODE; then
         # Use jq to safely build JSON array from docs
         json_docs_array=$(printf '%s\n' "${docs[@]}" | jq -R . | jq -s .)
     fi
-    
+
     # Use jq for proper JSON escaping of path variables
     jq -n \
         --arg feature_dir "$FEATURE_DIR" \
@@ -173,12 +182,15 @@ if $JSON_MODE; then
         --arg prd "$PRD" \
         --arg ard "$ARD" \
         --arg sec "$SEC" \
-        '{FEATURE_DIR: $feature_dir, AVAILABLE_DOCS: $available_docs, PRD: $prd, ARD: $ard, SEC: $sec}'
+        --arg execution_mode "$EXECUTION_MODE" \
+        --arg has_risk_triggers "$HAS_RISK_TRIGGERS" \
+        --arg risk_triggers "$RISK_TRIGGERS" \
+        '{FEATURE_DIR: $feature_dir, AVAILABLE_DOCS: $available_docs, PRD: $prd, ARD: $ard, SEC: $sec, EXECUTION_MODE: $execution_mode, HAS_RISK_TRIGGERS: $has_risk_triggers, RISK_TRIGGERS: $risk_triggers}'
 else
     # Text output
     echo "FEATURE_DIR:$FEATURE_DIR"
     echo "AVAILABLE_DOCS:"
-    
+
     # Show status of each potential document
     check_file "$RESEARCH" "research.md"
     check_file "$DATA_MODEL" "data-model.md"
@@ -191,4 +203,8 @@ else
     if $INCLUDE_TASKS; then
         check_file "$TASKS" "tasks.md"
     fi
+
+    echo "EXECUTION_MODE:$EXECUTION_MODE"
+    echo "HAS_RISK_TRIGGERS:$HAS_RISK_TRIGGERS"
+    echo "RISK_TRIGGERS:$RISK_TRIGGERS"
 fi

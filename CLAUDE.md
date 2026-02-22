@@ -132,6 +132,9 @@ Changes to `__init__.py` require:
 ## Active Technologies
 - Bash (POSIX-compatible) + PowerShell 7+ + Git 2.5+ (worktree support), jq (optional, for JSON parsing) (001-git-worktrees)
 - JSON configuration file (`.specify/config.json`) (001-git-worktrees)
+- Bash (POSIX-compatible, sh-compatible) + Markdown (command templates) + `scripts/bash/common.sh` (shared functions), `scripts/bash/check-prerequisites.sh` (JSON output layer), `templates/commands/` (AI workflow templates) (001-adaptive-execution-modes)
+- `.specify/config.json` (project default mode), `specs/{feature}/.feature-config.json` (per-feature selected mode) (001-adaptive-execution-modes)
 
 ## Recent Changes
+- 001-adaptive-execution-modes: Added adaptive execution modes (fast/balanced/detailed), detect_risk_triggers(), get_execution_mode(), read_feature_config_value() to common.sh, mode-aware clarify/plan templates, run-summary.md generation, .feature-config.json per-feature persistence
 - 001-git-worktrees: Added Bash (POSIX-compatible) + PowerShell 7+ + Git 2.5+ (worktree support), jq (optional, for JSON parsing)

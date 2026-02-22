@@ -42,7 +42,36 @@ You **MUST** consider the user input before proceeding (if not empty).
    - If AR exists: Read it for architecture decisions, component design, and technical constraints. Incorporate selected option and implementation guardrails into the plan.
    - If SEC exists: Read it for security requirements (SEC-* IDs), trust boundaries, and data classifications. Incorporate security tasks into the plan.
 
-4. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
+4. **Mode + Risk Gate** (read execution mode and risk triggers before artifact generation):
+
+   a. Determine the execution mode and risk trigger state. **Preferred**: run `scripts/bash/check-prerequisites.sh --json` to obtain `EXECUTION_MODE`, `HAS_RISK_TRIGGERS`, and `RISK_TRIGGERS` from the authoritative shell functions. **Fallback** (if script unavailable): read manually:
+      - Read `EXECUTION_MODE` from `SPECS_DIR/.feature-config.json` (key: `mode`), falling back to project default (`defaultMode` in `.specify/config.json`), then to `"balanced"` if neither exists
+      - **Backward compatibility**: If `.feature-config.json` does not exist (features created before adaptive execution modes were added), display: `"Note: No execution mode configured for this feature. Defaulting to balanced. Run /speckit.specify to set a mode explicitly."` and continue with balanced mode.
+      - **Validate** the mode is one of `fast`, `balanced`, or `detailed`. If invalid, emit: `"ERROR: Unknown execution mode '{value}'. Valid values: fast, balanced, detailed. Re-run /speckit.specify to reset."` and halt.
+      - Read `RISK_TRIGGERS` by scanning FEATURE_SPEC for risk-indicating keywords (see `contracts/risk-triggers.md` for the canonical keyword catalog)
+      - Set `HAS_RISK_TRIGGERS` to `true` if any keywords matched, `false` otherwise
+
+   b. **Risk Trigger Notification** (if triggers detected in fast or balanced mode):
+      If `HAS_RISK_TRIGGERS` is `true` AND `EXECUTION_MODE` is `fast` or `balanced`, display this notification **before** any AR/SEC artifact generation begins: `"⚠️  Risk triggers detected in spec: [<matched keywords>]. Adding Architecture Review (AR) and Security Review (SEC) to this run. Continuing with escalated artifact set..."`
+
+   c. **AR/SEC Artifact Gating** (mode-dependent):
+
+      | Mode | HAS_RISK_TRIGGERS | AR | SEC | Plan Depth |
+      | --- | --- | --- | --- | --- |
+      | `fast` | `false` | Skip | Skip | Condensed: merge Summary and Technical Context into single block, omit PRD cross-reference section |
+      | `fast` | `true` | Generate | Generate | Condensed (same as above) |
+      | `balanced` | `false` | Skip | Skip | Full: all Technical Context fields, all sections |
+      | `balanced` | `true` | Generate | Generate | Full |
+      | `detailed` | any | Generate | Generate | Full, with explicit decision rationale section |
+
+      - When generating AR: write to `SPECS_DIR/ar.md`
+      - When generating SEC: write to `SPECS_DIR/sec.md`
+      - For `detailed` mode: generate AR first, then SEC, then proceed to plan — establishing the rationale-before-implementation sequence. Include explicit decision rationale section in plan output.
+      - For `fast` or `balanced` with triggers: generate AR and SEC before plan artifact generation
+
+   d. Track `escalated` status: set to `true` if risk triggers caused AR/SEC to be added in fast or balanced mode; `false` otherwise (including detailed mode where AR/SEC are always included)
+
+5. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
    - Fill Constitution Check section from constitution
    - Evaluate gates (ERROR if violations unjustified)
@@ -50,8 +79,38 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Phase 1: Generate data-model.md, contracts/, quickstart.md
    - Phase 1: Update agent context by running the agent script
    - Re-evaluate Constitution Check post-design
+   - Apply plan depth rules from step 4c (condensed for fast, full for balanced/detailed)
 
-5. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+6. **Run Summary Generation** (always, after plan is complete):
+
+   After all artifacts are generated, create `SPECS_DIR/run-summary.md` with this structure:
+
+   ```markdown
+   # Run Summary: {BRANCH}
+
+   **Date**: {YYYY-MM-DD}
+   **Execution Mode**: {EXECUTION_MODE} ({MODE_SOURCE from .feature-config.json})
+
+   ## Risk Assessment
+
+   **Triggers Detected**: {comma-separated keywords, or "None"}
+   **Escalated**: {Yes/No — true if triggers caused AR/SEC to be added in fast/balanced mode}
+
+   ## Artifacts Generated
+
+   - {list each filename created during this run, e.g., spec.md, plan.md, ar.md, sec.md, research.md, data-model.md, quickstart.md, run-summary.md}
+
+   ## Token Estimate
+
+   **Estimated tokens this run**: {N}
+
+   *Token count is self-reported by the AI agent based on approximate context window usage during this plan run.*
+   ```
+
+   - `run-summary.md` is overwritten on each plan run (not appended)
+   - Token count should be the AI's best estimate of total tokens consumed during the full `/speckit.plan` workflow
+
+7. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts (including run-summary.md).
 
 ## Phases
 

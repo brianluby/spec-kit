@@ -76,9 +76,24 @@ Given that feature description, do this:
    - **When MODE is "worktree"**: The feature is in a separate working directory. Use `FEATURE_ROOT` as your working directory for all subsequent commands and file operations
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
 
-3. Load `templates/spec-template.md` to understand required sections.
+3. **Mode Selection** (after feature scaffolding, before spec generation):
 
-4. Follow this execution flow:
+   a. Read the project default mode from config. The shell function `read_config_value "defaultMode" "balanced"` from `scripts/bash/common.sh` returns the default (falls back to `"balanced"` if not set).
+
+   b. Present an interactive mode selection prompt to the user showing `fast`, `balanced`, and `detailed` options. Pre-select the project default value with `●` and show others with `○`. Example prompt format: `"Select execution mode for this feature:"` with each option on its own line, followed by `"Press Enter to confirm selection."`
+
+   c. After the user confirms their selection:
+      - If the user accepted the default without change, set `mode_source` to `"config-default"`
+      - If the user changed the selection, set `mode_source` to `"user-selected"`
+      - Write the selection to `FEATURE_ROOT/.feature-config.json` as JSON with keys: `mode` (the selected value), `mode_source` (`"user-selected"` or `"config-default"`), and `mode_selected_at` (`"YYYY-MM-DD"` today's date)
+
+   d. Validate the selected mode is one of `fast`, `balanced`, or `detailed`. If an invalid value is somehow produced, emit: `"ERROR: Unknown execution mode '{value}'. Valid values: fast, balanced, detailed."` and re-prompt.
+
+   e. Continue to spec generation (step 4)
+
+4. Load `templates/spec-template.md` to understand required sections.
+
+5. Follow this execution flow:
 
     1. Parse user description from Input
        If empty: ERROR "No feature description provided"
@@ -104,9 +119,9 @@ Given that feature description, do this:
     7. Identify Key Entities (if data involved)
     8. Return: SUCCESS (spec ready for planning)
 
-5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+6. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
-6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+7. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
    a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
@@ -153,7 +168,7 @@ Given that feature description, do this:
 
    c. **Handle Validation Results**:
 
-      - **If all items pass**: Mark checklist complete and proceed to step 7
+      - **If all items pass**: Mark checklist complete and proceed to step 8
 
       - **If items fail (excluding [NEEDS CLARIFICATION])**:
         1. List the failing items and specific issues
@@ -198,7 +213,7 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+8. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
 
    **CRITICAL - Worktree Mode Notification**: If `MODE` is `worktree`, you **MUST** include a prominent warning section at the end of your completion report:
 
