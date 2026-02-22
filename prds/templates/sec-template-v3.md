@@ -458,7 +458,7 @@ Does this feature have regulatory implications?
 Before marking as Approved:
 - [ ] Agent has verified Attack surface documented with auth/authz status for each exposure
 - [ ] Agent has verified Exposure Points table has no contradictory rows (None vs. actual endpoints)
-- [ ] Agent has verified All PRD Data Model entities appear in Data Inventory
+- [ ] Agent has verified that all PRD data model entities appear in the data inventory
 - [ ] Agent has verified All data elements are classified using the 4-tier model
 - [ ] Agent has verified Third-party dependencies and services are listed
 - [ ] Agent has verified CIA impact is assessed with Low/Medium/High ratings
