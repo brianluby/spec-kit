@@ -368,10 +368,10 @@ All items must be checked before proceeding to AR or implementation.
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Approved:
-- [ ] Agent has verified all requirements have unique IDs (M-1, S-2, etc.)
-- [ ] Agent has verified all Must Have requirements have linked acceptance criteria
-- [ ] Agent has verified Glossary terms are used consistently throughout
-- [ ] Agent has verified Diagrams use terminology from Glossary
-- [ ] Agent has verified Security considerations are documented (or N/A justified)
-- [ ] Agent has verified Definition of Ready checklist is complete
-- [ ] Agent has verified No open questions blocking implementation
+- [ ] Agent has verified that all requirements have unique IDs (M-1, S-2, etc.)
+- [ ] Agent has verified that all Must Have requirements have linked acceptance criteria
+- [ ] Agent has verified that Glossary terms are used consistently throughout
+- [ ] Agent has verified that Diagrams use terminology from the Glossary
+- [ ] Agent has verified that Security considerations are documented (or N/A justified)
+- [ ] Agent has verified that the Definition of Ready checklist is complete
+- [ ] Agent has verified that there are no open questions blocking implementation
