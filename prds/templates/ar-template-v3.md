@@ -501,14 +501,14 @@ gantt
 ## Review Checklist 🟢 `@llm-autonomous`
 
 Before marking as Accepted:
-- [ ] Agent has verified all PRD Must Have requirements appear in Driving Requirements
-- [ ] Agent has verified Option 0 (Status Quo) is documented unless greenfield
-- [ ] Agent has verified Simplest Implementation comparison is completed
-- [ ] Agent has verified Decision drivers are prioritized and addressed
-- [ ] Agent has verified At least 2 options were seriously considered
-- [ ] Agent has verified Constraints distinguish inherited vs. new
-- [ ] Agent has verified Component names are consistent across all diagrams and tables
-- [ ] Agent has verified Implementation guardrails reference specific PRD constraints
-- [ ] Agent has verified Rollback triggers and authority are defined
-- [ ] Agent has verified Security review is linked or N/A documented
-- [ ] Agent has verified No open questions blocking implementation
+- [ ] Agent has verified that all PRD Must Have requirements appear in Driving Requirements
+- [ ] Agent has verified that Option 0 (Status Quo) is documented unless greenfield
+- [ ] Agent has verified that Simplest Implementation comparison is completed
+- [ ] Agent has verified that Decision drivers are prioritized and addressed
+- [ ] Agent has verified that At least 2 options were seriously considered
+- [ ] Agent has verified that Constraints distinguish inherited vs. new
+- [ ] Agent has verified that Component names are consistent across all diagrams and tables
+- [ ] Agent has verified that Implementation guardrails reference specific PRD constraints
+- [ ] Agent has verified that Rollback triggers and authority are defined
+- [ ] Agent has verified that Security review is linked or N/A documented
+- [ ] Agent has verified that No open questions blocking implementation
