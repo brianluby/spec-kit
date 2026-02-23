@@ -2,12 +2,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
-All notable changes to the Specify CLI and templates are documented here.
+Recent changes to the Specify CLI and templates are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] - Unreleased
+## [0.1.6] - 2026-02-23
+
+### Fixed
+
+- **Parameter Ordering Issues (#1641)**: Fixed CLI parameter parsing issue where option flags were incorrectly consumed as values for preceding options
+  - Added validation to detect when `--ai` or `--ai-commands-dir` incorrectly consume following flags like `--here` or `--ai-skills`
+  - Now provides clear error messages: "Invalid value for --ai: '--here'"
+  - Includes helpful hints suggesting proper usage and listing available agents
+  - Commands like `specify init --ai-skills --ai --here` now fail with actionable feedback instead of confusing "Must specify project name" errors
+  - Added comprehensive test suite (5 new tests) to prevent regressions
+
+## [0.1.5] - 2026-02-21
 
 ### Fixed
 
@@ -16,13 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Affected agents now work correctly: copilot (`.github/agents/`), opencode (`.opencode/command/`), windsurf (`.windsurf/workflows/`), codex (`.codex/prompts/`), kilocode (`.kilocode/workflows/`), q (`.amazonq/prompts/`), and agy (`.agent/workflows/`)
   - The `install_ai_skills()` function now uses the correct path for all agents instead of assuming `commands/` for everyone
 
-## [0.1.4] - Unreleased
+## [0.1.4] - 2026-02-20
 
 ### Fixed
 
 - **Qoder CLI detection**: Renamed `AGENT_CONFIG` key from `"qoder"` to `"qodercli"` to match the actual executable name, fixing `specify check` and `specify init --ai` detection failures
 
-## [0.1.3] - Unreleased
+## [0.1.3] - 2026-02-20
 
 ## [0.1.0] - 2026-01-28
 
@@ -157,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed jq injection vulnerability in `configure-worktree.sh` by using `--arg` for user input
 - Fixed PowerShell temp file leak in writability checks with proper `try/finally` cleanup
 - Moved `WORKTREE_DESIGN.md` into `specs/001-git-worktrees/` to keep design docs with their spec
+- Add stale workflow for 180-day inactive issues and PRs (#1594)
 
 ## [0.0.22] - 2025-11-07
 
@@ -184,7 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Filters out common stop words (I, want, to, the, for, etc.)
   - Removes words shorter than 3 characters (unless they're uppercase acronyms)
   - Takes 3-4 most meaningful words from the description
-  - **Enforces GitHub's 244-byte branch name limit** with automatic truncation and warnings
+  - **Enforces GitHub's 244-byte limit** with automatic truncation and warnings
   - Examples:
     - "I want to create user authentication" → `001-create-user-authentication`
     - "Implement OAuth2 integration for API" → `001-implement-oauth2-integration-api`
