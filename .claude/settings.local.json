@@ -53,7 +53,8 @@
       "Bash(python3:*)",
       "Bash(tail:*)",
       "Bash(.venv/bin/python3:*)",
-      "Bash(echo ==========================================:*)"
+      "Bash(echo ==========================================:*)",
+      "Skill(commit-commands:commit)"
     ]
   }
 }
