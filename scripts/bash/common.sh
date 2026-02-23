@@ -164,40 +164,43 @@ find_feature_dir_by_prefix() {
 }
 
 get_feature_paths() {
-    local repo_root=$(get_repo_root)
-    local current_branch=$(get_current_branch)
-    local has_git_repo="false"
+    local _repo_root
+    local _current_branch
+    local _has_git_repo
+    local _feature_dir
+    local _prd_path
+    local _ard_path
+    local _sec_path
+    _repo_root=$(get_repo_root)
+    _current_branch=$(get_current_branch)
+    _has_git_repo="false"
 
     if has_git; then
-        has_git_repo="true"
+        _has_git_repo="true"
     fi
 
     # Use prefix-based lookup to support multiple branches per spec
-    local feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch")
+    _feature_dir=$(find_feature_dir_by_prefix "$_repo_root" "$_current_branch")
 
-    local prd_path
-    local ard_path
-    local sec_path
-    prd_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "prd.md" "PRD")"
-    ard_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "ar.md" "AR")"
-    sec_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "sec.md" "SEC")"
+    _prd_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "prd.md" "PRD")"
+    _ard_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "ar.md" "AR")"
+    _sec_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "sec.md" "SEC")"
 
-    cat <<EOF
-REPO_ROOT='$repo_root'
-CURRENT_BRANCH='$current_branch'
-HAS_GIT='$has_git_repo'
-FEATURE_DIR='$feature_dir'
-FEATURE_SPEC='$feature_dir/spec.md'
-IMPL_PLAN='$feature_dir/plan.md'
-TASKS='$feature_dir/tasks.md'
-RESEARCH='$feature_dir/research.md'
-DATA_MODEL='$feature_dir/data-model.md'
-QUICKSTART='$feature_dir/quickstart.md'
-CONTRACTS_DIR='$feature_dir/contracts'
-PRD='$prd_path'
-ARD='$ard_path'
-SEC='$sec_path'
-EOF
+    # Assign directly to the calling scope (no eval needed)
+    REPO_ROOT="$_repo_root"
+    CURRENT_BRANCH="$_current_branch"
+    HAS_GIT="$_has_git_repo"
+    FEATURE_DIR="$_feature_dir"
+    FEATURE_SPEC="$_feature_dir/spec.md"
+    IMPL_PLAN="$_feature_dir/plan.md"
+    TASKS="$_feature_dir/tasks.md"
+    RESEARCH="$_feature_dir/research.md"
+    DATA_MODEL="$_feature_dir/data-model.md"
+    QUICKSTART="$_feature_dir/quickstart.md"
+    CONTRACTS_DIR="$_feature_dir/contracts"
+    PRD="$_prd_path"
+    ARD="$_ard_path"
+    SEC="$_sec_path"
 }
 
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
@@ -244,4 +247,148 @@ read_config_value() {
     else
         echo "$default_value"
     fi
+}
+
+# Read a value from a feature-level .feature-config.json
+# Usage: read_feature_config_value <key> [feature_dir] [default]
+# Returns the value or default if file/key absent
+read_feature_config_value() {
+    local key="$1"
+    local feature_dir="${2:-}"
+    local default_value="${3:-}"
+
+    if [[ -z "$feature_dir" ]]; then
+        local repo_root
+        repo_root=$(get_repo_root)
+        local current_branch
+        current_branch=$(get_current_branch)
+        feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch")
+    fi
+
+    local config_file="$feature_dir/.feature-config.json"
+    read_config_value "$key" "$default_value" "$config_file"
+}
+
+# Scan spec file for risk-indicating keywords from the v1 catalog
+# Usage: detect_risk_triggers <spec_file_path>
+# Returns: space-separated list of matched trigger tokens (empty string if none)
+# Exit code: 0 always (detection failure is non-fatal)
+detect_risk_triggers() {
+    local spec_file="$1"
+
+    if [[ ! -f "$spec_file" ]]; then
+        echo ""
+        return 0
+    fi
+
+    local keywords=(
+        "auth"
+        "authentication"
+        "authorization"
+        "payment"
+        "billing"
+        "pii"
+        "personal data"
+        "personal information"
+        "external api"
+        "third-party"
+        "third party"
+        "delete"
+        "destroy"
+        "drop"
+        "admin"
+        "compliance"
+        "regulation"
+        "gdpr"
+        "hipaa"
+        "encryption"
+        "secret"
+        "credential"
+        "token"
+        "password"
+    )
+
+    local matched=()
+    local content
+    content=$(cat "$spec_file" 2>/dev/null) || { echo ""; return 0; }
+
+    for keyword in "${keywords[@]}"; do
+        if [[ "$keyword" =~ [[:space:]-] ]]; then
+            # Multi-word or hyphenated: use plain case-insensitive match
+            if echo "$content" | grep -q -i "$keyword" 2>/dev/null; then
+                # Canonicalize multi-word/hyphenated keywords by replacing spaces with hyphens
+                local canonical="${keyword// /-}"
+                local exists=0
+                for m in "${matched[@]}"; do
+                    if [[ "$m" == "$canonical" ]]; then
+                        exists=1
+                        break
+                    fi
+                done
+                if [[ $exists -eq 0 ]]; then
+                    matched+=("$canonical")
+                fi
+            fi
+        else
+            # Single word: use word-boundary match
+            if echo "$content" | grep -q -i -w "$keyword" 2>/dev/null; then
+                local canonical="$keyword"
+                local exists=0
+                for m in "${matched[@]}"; do
+                    if [[ "$m" == "$canonical" ]]; then
+                        exists=1
+                        break
+                    fi
+                done
+                if [[ $exists -eq 0 ]]; then
+                    matched+=("$canonical")
+                fi
+            fi
+        fi
+    done
+
+    # Return space-separated deduplicated, canonicalized keywords
+    local result=""
+    for m in "${matched[@]}"; do
+        if [[ -z "$result" ]]; then
+            result="$m"
+        else
+            result="$result $m"
+        fi
+    done
+    echo "$result"
+    return 0
+}
+
+# Read execution mode from .feature-config.json, falling back to config default then "balanced"
+# Usage: get_execution_mode [feature_dir]
+# Returns: one of fast|balanced|detailed
+get_execution_mode() {
+    local feature_dir="${1:-}"
+
+    # Try feature-level config first
+    local mode
+    mode=$(read_feature_config_value "mode" "$feature_dir" "")
+
+    # Fall back to project default
+    if [[ -z "$mode" ]]; then
+        mode=$(read_config_value "defaultMode" "")
+    fi
+
+    # Final fallback
+    if [[ -z "$mode" ]]; then
+        mode="balanced"
+    fi
+
+    # Validate
+    case "$mode" in
+        fast|balanced|detailed)
+            echo "$mode"
+            ;;
+        *)
+            echo "ERROR: Unknown execution mode '$mode'. Valid values: fast, balanced, detailed. Re-run /speckit.specify to reset." >&2
+            echo "balanced"
+            return 1
+            ;;
+    esac
 }

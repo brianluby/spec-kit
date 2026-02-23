@@ -453,15 +453,74 @@ def _has_non_empty_file(path: Path) -> bool:
         return False
 
 
+_RE_CONSTITUTION_VERSION = re.compile(
+    r"\*\*Version\*\*:\s*(\d+)\.(\d+)\.(\d+)"
+)
+_RE_CONSTITUTION_PLACEHOLDER = re.compile(
+    r"\[CONSTITUTION_VERSION\]"
+)
+
+
+def _get_constitution_version(path: Path) -> Optional[Tuple[int, int, int]]:
+    """Parse the ``**Version**: X.Y.Z`` line from a constitution file.
+
+    Returns ``None`` when the file is missing, contains the
+    ``[CONSTITUTION_VERSION]`` placeholder, or has no parseable version line.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+    if _RE_CONSTITUTION_PLACEHOLDER.search(text):
+        return None
+
+    m = _RE_CONSTITUTION_VERSION.search(text)
+    if not m:
+        return None
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+
+def _is_customized_constitution(path: Path) -> bool:
+    """Return ``True`` when *path* is a constitution with an explicit version.
+
+    Any concrete version (including 1.0.0) that does not use the
+    ``[CONSTITUTION_VERSION]`` placeholder is considered customized and
+    will trigger an overwrite confirmation.
+    """
+    version = _get_constitution_version(path)
+    if version is None:
+        return False
+    return version >= (1, 0, 0)
+
+
+def _confirm_constitution_overwrite(dest_file: Path) -> bool:
+    """Prompt before overwriting a customized constitution.
+
+    Returns ``True`` to proceed with overwrite, ``False`` to skip.
+    In non-interactive mode (no TTY on stdin) the existing file is
+    silently preserved (safe default).
+    """
+    if not sys.stdin.isatty():
+        return False
+    version = _get_constitution_version(dest_file)
+    version_str = f"{version[0]}.{version[1]}.{version[2]}" if version else "unknown"
+    return typer.confirm(
+        f"Existing constitution (v{version_str}) will be overwritten. Continue?",
+        default=False,
+    )
+
+
 def _copy_tree_preserving_constitution(src_dir: Path, dest_dir: Path) -> None:
-    """Copy src_dir into dest_dir, preserving an existing non-empty constitution.md."""
+    """Copy src_dir into dest_dir, preserving a customized constitution.md."""
     for src_file in src_dir.rglob("*"):
         if not src_file.is_file():
             continue
         rel_path = src_file.relative_to(src_dir)
         dest_file = dest_dir / rel_path
-        if _is_constitution_file(dest_file) and _has_non_empty_file(dest_file):
-            continue
+        if _is_constitution_file(dest_file) and _is_customized_constitution(dest_file):
+            if not _confirm_constitution_overwrite(dest_file):
+                continue
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_file, dest_file)
 
@@ -1209,9 +1268,9 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                                         # Special handling for .vscode/settings.json - merge instead of overwrite
                                         if dest_file.name == "settings.json" and dest_file.parent.name == ".vscode":
                                             handle_vscode_settings(sub_item, dest_file, rel_path, verbose, tracker)
-                                        elif _is_constitution_file(dest_file) and _has_non_empty_file(dest_file):
-                                            # Preserve existing custom constitution on upgrade/re-init.
-                                            continue
+                                        elif _is_constitution_file(dest_file) and _is_customized_constitution(dest_file):
+                                            if not _confirm_constitution_overwrite(dest_file):
+                                                continue
                                         else:
                                             shutil.copy2(sub_item, dest_file)
                             else:
