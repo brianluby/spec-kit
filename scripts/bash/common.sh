@@ -164,38 +164,43 @@ find_feature_dir_by_prefix() {
 }
 
 get_feature_paths() {
-    local repo_root=$(get_repo_root)
-    local current_branch=$(get_current_branch)
-    local has_git_repo="false"
+    local _repo_root
+    local _current_branch
+    local _has_git_repo
+    local _feature_dir
+    local _prd_path
+    local _ard_path
+    local _sec_path
+    _repo_root=$(get_repo_root)
+    _current_branch=$(get_current_branch)
+    _has_git_repo="false"
 
     if has_git; then
-        has_git_repo="true"
+        _has_git_repo="true"
     fi
 
     # Use prefix-based lookup to support multiple branches per spec
-    local feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch")
+    _feature_dir=$(find_feature_dir_by_prefix "$_repo_root" "$_current_branch")
 
-    local prd_path
-    local ard_path
-    local sec_path
-    prd_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "prd.md" "PRD")"
-    ard_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "ar.md" "AR")"
-    sec_path="$(resolve_formal_doc_path "$repo_root" "$feature_dir" "sec.md" "SEC")"
+    _prd_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "prd.md" "PRD")"
+    _ard_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "ar.md" "AR")"
+    _sec_path="$(resolve_formal_doc_path "$_repo_root" "$_feature_dir" "sec.md" "SEC")"
 
-    printf 'REPO_ROOT=%q\n' "$repo_root"
-    printf 'CURRENT_BRANCH=%q\n' "$current_branch"
-    printf 'HAS_GIT=%q\n' "$has_git_repo"
-    printf 'FEATURE_DIR=%q\n' "$feature_dir"
-    printf 'FEATURE_SPEC=%q\n' "$feature_dir/spec.md"
-    printf 'IMPL_PLAN=%q\n' "$feature_dir/plan.md"
-    printf 'TASKS=%q\n' "$feature_dir/tasks.md"
-    printf 'RESEARCH=%q\n' "$feature_dir/research.md"
-    printf 'DATA_MODEL=%q\n' "$feature_dir/data-model.md"
-    printf 'QUICKSTART=%q\n' "$feature_dir/quickstart.md"
-    printf 'CONTRACTS_DIR=%q\n' "$feature_dir/contracts"
-    printf 'PRD=%q\n' "$prd_path"
-    printf 'ARD=%q\n' "$ard_path"
-    printf 'SEC=%q\n' "$sec_path"
+    # Assign directly to the calling scope (no eval needed)
+    REPO_ROOT="$_repo_root"
+    CURRENT_BRANCH="$_current_branch"
+    HAS_GIT="$_has_git_repo"
+    FEATURE_DIR="$_feature_dir"
+    FEATURE_SPEC="$_feature_dir/spec.md"
+    IMPL_PLAN="$_feature_dir/plan.md"
+    TASKS="$_feature_dir/tasks.md"
+    RESEARCH="$_feature_dir/research.md"
+    DATA_MODEL="$_feature_dir/data-model.md"
+    QUICKSTART="$_feature_dir/quickstart.md"
+    CONTRACTS_DIR="$_feature_dir/contracts"
+    PRD="$_prd_path"
+    ARD="$_ard_path"
+    SEC="$_sec_path"
 }
 
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
