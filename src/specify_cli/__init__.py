@@ -35,6 +35,7 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple
 
+import yaml
 import typer
 import httpx
 from rich.console import Console
