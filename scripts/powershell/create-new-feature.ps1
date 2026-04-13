@@ -372,8 +372,9 @@ if ($hasGit) {
         # Check if branch already exists
         if (Test-BranchExists -BranchName $branchName) {
             # Attach worktree to existing branch (without -b flag)
+            $worktreeAddError = ''
             try {
-                git worktree add $worktreePath $branchName 2>$null | Out-Null
+                $worktreeAddError = git worktree add $worktreePath $branchName 2>&1 | Out-String
                 if ($LASTEXITCODE -eq 0) {
                     $creationMode = "worktree"
                     $featureRoot = $worktreePath
@@ -383,12 +384,15 @@ if ($hasGit) {
                 }
             }
             catch {
+                if ($worktreeAddError) {
+                    Write-Host $worktreeAddError.Trim()
+                }
+                Write-Host "[specify] Suggestions:"
+                Write-Host "[specify]   - Check existing worktrees: git worktree list"
+                Write-Host "[specify]   - Remove stale worktree: git worktree remove <path>"
+                Write-Host "[specify]   - Prune orphaned entries: git worktree prune"
+                Write-Host "[specify]   - Switch to branch mode: configure-worktree.ps1 -Mode branch"
                 Write-Error "[specify] Error: Failed to create worktree for existing branch '$branchName' at $worktreePath"
-                Write-Error "[specify] Suggestions:"
-                Write-Error "[specify]   - Check existing worktrees: git worktree list"
-                Write-Error "[specify]   - Remove stale worktree: git worktree remove <path>"
-                Write-Error "[specify]   - Prune orphaned entries: git worktree prune"
-                Write-Error "[specify]   - Switch to branch mode: configure-worktree.ps1 -Mode branch"
                 exit 1
             }
         }
@@ -416,11 +420,25 @@ if ($hasGit) {
     }
     else {
         # Standard branch mode
+        $branchCreateError = ''
         try {
-            git checkout -b $branchName | Out-Null
+            $branchCreateError = git checkout -b $branchName 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                throw "git checkout failed"
+            }
         }
         catch {
-            Write-Warning "Failed to create git branch: $branchName"
+            $existingBranch = git branch --list $branchName 2>$null
+            if ($existingBranch) {
+                Write-Error "[specify] Error: Branch '$branchName' already exists. Please use a different feature name or specify a different number with -Number."
+            }
+            elseif ($branchCreateError) {
+                Write-Error "[specify] Error: Failed to create git branch '$branchName'.`n$($branchCreateError.Trim())"
+            }
+            else {
+                Write-Error "[specify] Error: Failed to create git branch '$branchName'. Please check your git configuration and try again."
+            }
+            exit 1
         }
         $creationMode = "branch"
         $featureRoot = $repoRoot
@@ -474,4 +492,3 @@ else {
     Write-Output "HAS_GIT: $hasGit"
     Write-Output "SPECIFY_FEATURE environment variable set to: $branchName"
 }
-
