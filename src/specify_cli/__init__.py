@@ -435,9 +435,13 @@ def _rewrite_paths(text: str) -> str:
 def _strip_frontmatter_block(content: str) -> str:
     """Remove a leading YAML frontmatter block when present."""
     lines = content.split("\n")
-    dashes = [i for i, ln in enumerate(lines) if ln.strip() == "---"]
-    if len(dashes) >= 2:
-        return "\n".join(lines[dashes[1] + 1 :])
+    first_nonempty = next((i for i, ln in enumerate(lines) if ln.strip()), None)
+    if first_nonempty is None or lines[first_nonempty].strip() != "---":
+        return content
+
+    for i in range(first_nonempty + 1, len(lines)):
+        if lines[i].strip() == "---":
+            return "\n".join(lines[i + 1 :])
     return content
 
 
@@ -2399,7 +2403,14 @@ def init(
                         else project_path / commands_subdir
                     )
                     if commands_dir.exists():
-                        shutil.rmtree(commands_dir)
+                        resolved_project_path = project_path.resolve()
+                        resolved_commands_dir = commands_dir.resolve()
+                        if resolved_commands_dir.is_relative_to(resolved_project_path):
+                            shutil.rmtree(resolved_commands_dir)
+                        else:
+                            console.print(
+                                f"[yellow]Warning:[/yellow] Skipping command cleanup outside project: {resolved_commands_dir}"
+                            )
                 elif not skills_ok:
                     tracker.error("ai-skills", "no skills installed")
             else:

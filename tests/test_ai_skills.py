@@ -397,7 +397,8 @@ class TestInstallAiSkills:
 
         # Place .md templates in the agent's commands directory
         agent_folder = AGENT_CONFIG[agent_key]["folder"]
-        cmds_dir = proj / agent_folder.rstrip("/") / "commands"
+        commands_subdir = AGENT_CONFIG[agent_key].get("commands_subdir", "commands")
+        cmds_dir = proj / agent_folder.rstrip("/") / commands_subdir
         cmds_dir.mkdir(parents=True)
         (cmds_dir / "specify.md").write_text(
             "---\ndescription: Test command\n---\n\n# Test\n\nBody.\n"
@@ -765,6 +766,11 @@ class TestParameterOrderingIssue:
 class TestCommandTemplateProcessing:
     """Test agent-specific command template rendering."""
 
+    def test_strip_frontmatter_only_when_leading(self):
+        """Helper should not strip body content when --- appears later."""
+        content = "# Heading\n\n---\nbody separator\n"
+        assert specify_cli._strip_frontmatter_block(content) == content
+
     def test_goose_recipe_rendering(self, project_dir, templates_dir):
         """Goose templates should render to recipe YAML with prompt content."""
         output_dir = project_dir / ".goose" / "recipes"
@@ -799,3 +805,39 @@ class TestCommandTemplateProcessing:
         assert result.exit_code == 1
         assert "Invalid value for --ai-commands-dir" in result.output
         assert "--here" in result.output
+
+    def test_generic_ai_skills_skips_external_cleanup(self, tmp_path):
+        """Successful generic skill generation must not delete external directories."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        target = tmp_path / "generic-proj"
+        external_commands = (tmp_path / "external-cmds").resolve()
+        external_commands.mkdir()
+        (external_commands / "speckit.specify.md").write_text("# spec")
+
+        with (
+            patch("specify_cli.download_and_extract_template"),
+            patch("specify_cli.ensure_executable_scripts"),
+            patch("specify_cli.ensure_constitution_from_template"),
+            patch("specify_cli.install_ai_skills", return_value=True),
+            patch("specify_cli.is_git_repo", return_value=False),
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "init",
+                    str(target),
+                    "--ai",
+                    "generic",
+                    "--ai-commands-dir",
+                    str(external_commands),
+                    "--ai-skills",
+                    "--script",
+                    "sh",
+                    "--no-git",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert external_commands.exists()

@@ -6,7 +6,7 @@ set -euo pipefail
 # Usage: .github/workflows/scripts/create-release-packages.sh <version>
 #   Version argument should include leading 'v'.
 #   Optionally set AGENTS and/or SCRIPTS env vars to limit what gets built.
-#     AGENTS  : space or comma separated subset of: claude gemini goose copilot cursor-agent qwen opencode windsurf codex amp shai bob (default: all)
+#     AGENTS  : space or comma separated subset of: claude gemini goose copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy amp shai q bob qoder (default: all)
 #     SCRIPTS : space or comma separated subset of: sh ps (default: both)
 #   Examples:
 #     AGENTS=claude SCRIPTS=sh $0 v0.2.0
@@ -35,6 +35,16 @@ rewrite_paths() {
     -e 's@(/?)memory/@.specify/memory/@g' \
     -e 's@(/?)scripts/@.specify/scripts/@g' \
     -e 's@(/?)templates/@.specify/templates/@g'
+}
+
+yaml_escape() {
+  local value=${1//\\/\\\\}
+  value=${value//"/\\"}
+  printf '%s' "$value"
+}
+
+humanize_title() {
+  printf '%s\n' "$1" | sed 's/[._-]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}'
 }
 
 generate_commands() {
@@ -96,9 +106,9 @@ generate_commands() {
       yaml)
         local yaml_body title escaped_title escaped_description
         yaml_body=$(printf '%s\n' "$body" | awk 'BEGIN { dash=0; has_frontmatter=0 } /^---$/ { if (NR == 1) { has_frontmatter=1; dash++; next } if (has_frontmatter && dash == 1) { dash++; next } } { if (!has_frontmatter || dash >= 2) print }')
-        title=$(printf '%s\n' "$name" | sed 's/[._-]/ /g')
-        escaped_title=${title//"/\\"}
-        escaped_description=${description//"/\\"}
+        title=$(humanize_title "$name")
+        escaped_title=$(yaml_escape "$title")
+        escaped_description=$(yaml_escape "$description")
         {
           printf 'version: "1.0.0"\n'
           printf 'title: "%s"\n' "$escaped_title"

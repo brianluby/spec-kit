@@ -14,7 +14,7 @@
 
 .PARAMETER Agents
     Comma or space separated subset of agents to build (default: all)
-    Valid agents: claude, gemini, goose, copilot, cursor-agent, qwen, opencode, windsurf, codex, kilocode, auggie, roo, codebuddy, amp, q, bob, qoder
+    Valid agents: claude, gemini, goose, copilot, cursor-agent, qwen, opencode, windsurf, codex, kilocode, auggie, roo, codebuddy, amp, shai, q, bob, qoder
 
 .PARAMETER Scripts
     Comma or space separated subset of script types to build (default: both)
@@ -65,6 +65,20 @@ function Rewrite-Paths {
     $Content = $Content -replace '(/?)\bscripts/', '.specify/scripts/'
     $Content = $Content -replace '(/?)\btemplates/', '.specify/templates/'
     return $Content
+}
+
+function Convert-ToHumanTitle {
+    param([string]$Value)
+
+    $words = (($Value -replace '[._-]', ' ').Trim() -split '\s+') | Where-Object { $_ }
+    return ($words | ForEach-Object {
+        if ($_.Length -gt 1) {
+            $_.Substring(0, 1).ToUpper() + $_.Substring(1).ToLower()
+        }
+        else {
+            $_.ToUpper()
+        }
+    }) -join ' '
 }
 
 function Generate-Commands {
@@ -191,7 +205,7 @@ function Generate-Commands {
                     }
                 }
                 $yamlBody = $yamlBodyLines -join "`n"
-                $title = (($name -replace '[._-]', ' ').Trim())
+                $title = Convert-ToHumanTitle -Value $name
                 $escapedTitle = $title -replace '"', '\"'
                 $escapedDescription = $description -replace '"', '\"'
                 $indentedBody = (($yamlBody -split "`n") | ForEach-Object { "  $_" }) -join "`n"
@@ -384,6 +398,10 @@ function Build-Variant {
             $cmdDir = Join-Path $baseDir ".agents/commands"
             Generate-Commands -Agent 'amp' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
+        'shai' {
+            $cmdDir = Join-Path $baseDir ".shai/commands"
+            Generate-Commands -Agent 'shai' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        }
         'q' {
             $cmdDir = Join-Path $baseDir ".amazonq/prompts"
             Generate-Commands -Agent 'q' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
@@ -405,7 +423,7 @@ function Build-Variant {
 }
 
 # Define all agents and scripts
-$AllAgents = @('claude', 'gemini', 'goose', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'windsurf', 'codex', 'kilocode', 'auggie', 'roo', 'codebuddy', 'amp', 'q', 'bob', 'qoder')
+$AllAgents = @('claude', 'gemini', 'goose', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'windsurf', 'codex', 'kilocode', 'auggie', 'roo', 'codebuddy', 'amp', 'shai', 'q', 'bob', 'qoder')
 $AllScripts = @('sh', 'ps')
 
 function Normalize-List {

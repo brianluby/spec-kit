@@ -384,15 +384,15 @@ if ($hasGit) {
                 }
             }
             catch {
-                Write-Error "[specify] Error: Failed to create worktree for existing branch '$branchName' at $worktreePath"
                 if ($worktreeAddError) {
-                    Write-Error $worktreeAddError.Trim()
+                    Write-Host $worktreeAddError.Trim()
                 }
-                Write-Error "[specify] Suggestions:"
-                Write-Error "[specify]   - Check existing worktrees: git worktree list"
-                Write-Error "[specify]   - Remove stale worktree: git worktree remove <path>"
-                Write-Error "[specify]   - Prune orphaned entries: git worktree prune"
-                Write-Error "[specify]   - Switch to branch mode: configure-worktree.ps1 -Mode branch"
+                Write-Host "[specify] Suggestions:"
+                Write-Host "[specify]   - Check existing worktrees: git worktree list"
+                Write-Host "[specify]   - Remove stale worktree: git worktree remove <path>"
+                Write-Host "[specify]   - Prune orphaned entries: git worktree prune"
+                Write-Host "[specify]   - Switch to branch mode: configure-worktree.ps1 -Mode branch"
+                Write-Error "[specify] Error: Failed to create worktree for existing branch '$branchName' at $worktreePath"
                 exit 1
             }
         }
