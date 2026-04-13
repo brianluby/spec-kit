@@ -847,6 +847,18 @@ class StepTracker:
         return tree
 
 
+class ReleaseAssetUnavailable(Exception):
+    """Raised when the latest GitHub release has no matching template asset."""
+
+    def __init__(self, ai_assistant: str, pattern: str, assets: list[str]):
+        self.ai_assistant = ai_assistant
+        self.pattern = pattern
+        self.assets = assets
+        super().__init__(
+            f"No matching release asset found for {ai_assistant} (expected pattern: {pattern})"
+        )
+
+
 def get_key():
     """Get a single keypress in a cross-platform way using readchar."""
     key = readchar.readkey()
@@ -1324,7 +1336,7 @@ def download_template_from_github(
                 border_style="yellow",
             )
         )
-        raise typer.Exit(1)
+        raise ReleaseAssetUnavailable(ai_assistant, pattern, asset_names)
 
     download_url = asset["browser_download_url"]
     filename = asset["name"]
@@ -1431,6 +1443,24 @@ def download_and_extract_template(
             )
             tracker.add("download", "Download template")
             tracker.complete("download", meta["filename"])
+    except ReleaseAssetUnavailable:
+        if tracker:
+            tracker.complete(
+                "fetch", "release assets unavailable; using bundled templates"
+            )
+            tracker.add("download", "Download template")
+            tracker.skip("download", "using bundled templates")
+        elif verbose:
+            console.print(
+                "[yellow]Falling back to bundled templates because the latest GitHub release has no matching packaged asset.[/yellow]"
+            )
+        return install_from_bundled_templates(
+            project_path,
+            ai_assistant,
+            script_type,
+            is_current_dir=is_current_dir,
+            tracker=tracker,
+        )
     except Exception as e:
         if tracker:
             tracker.error("fetch", str(e))

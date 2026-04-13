@@ -24,6 +24,8 @@ from specify_cli import (
     _get_skills_dir,
     _process_command_template,
     AGENT_COMMAND_CONFIG,
+    ReleaseAssetUnavailable,
+    download_and_extract_template,
     install_ai_skills,
     AGENT_SKILLS_DIR_OVERRIDES,
     DEFAULT_SKILLS_DIR,
@@ -792,6 +794,24 @@ class TestCommandTemplateProcessing:
         assert recipe["activities"] == ["Spec-Driven Development"]
         assert "# Specify Command" in recipe["prompt"]
         assert "scripts:" not in recipe["prompt"]
+
+
+class TestBundledTemplateFallback:
+    """Test fallback to bundled templates when release assets are unavailable."""
+
+    def test_download_and_extract_falls_back_to_bundled_templates(self, project_dir):
+        """Missing GitHub release assets should not block init when templates are bundled."""
+        with patch(
+            "specify_cli.download_template_from_github",
+            side_effect=ReleaseAssetUnavailable(
+                "claude", "spec-kit-template-claude-sh", []
+            ),
+        ):
+            download_and_extract_template(project_dir, "claude", "sh", verbose=False)
+
+        assert (project_dir / ".claude" / "commands" / "speckit.specify.md").exists()
+        assert (project_dir / ".specify" / "scripts" / "bash").exists()
+        assert (project_dir / ".specify" / "memory").exists()
 
     def test_ai_commands_dir_consuming_flag(self):
         """--ai-commands-dir without value should not consume next flag."""
