@@ -222,7 +222,7 @@ provides:
     - name: "speckit.jira.specstoissues"
       file: "commands/specstoissues.md"
       description: "Create Jira hierarchy from spec and tasks"
-      aliases: ["speckit.specstoissues"]  # Alternate names
+      aliases: ["speckit.jira.specstoissues-short"]  # Alternate names within the extension namespace
 
     - name: "speckit.jira.discover-fields"
       file: "commands/discover-fields.md"
@@ -1376,7 +1376,7 @@ provides:
   commands:
     - name: "speckit.github.taskstoissues"
       file: "commands/taskstoissues.md"
-      aliases: ["speckit.taskstoissues"]  # Backward compatibility
+      aliases: ["speckit.github.taskstoissues-short"]  # Backward compatibility alias within the extension namespace
 ```
 
 AI agent registers both names, so old scripts work.
@@ -1508,7 +1508,7 @@ AI agent registers both names, so old scripts work.
 **Options**:
 
 - A) Prefixed: `/speckit.jira.specstoissues` (explicit, avoids conflicts)
-- B) Short alias: `/jira.specstoissues` (shorter, less verbose)
+- B) Namespaced alias: `/speckit.jira.specstoissues-short` (shorter, still collision-safe)
 - C) Both: Register both names, prefer prefixed in docs
 
 **Recommendation**: C (both), prefixed is canonical
