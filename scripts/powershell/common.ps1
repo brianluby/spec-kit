@@ -221,6 +221,69 @@ function Test-DirHasFiles {
     }
 }
 
+function Get-GlobalConfigPaths {
+    $xdgRoot = if ($env:XDG_CONFIG_HOME) { $env:XDG_CONFIG_HOME } else { Join-Path $HOME ".config" }
+    @(
+        (Join-Path $HOME ".specify/config.json"),
+        (Join-Path $xdgRoot "specify/config.json")
+    )
+}
+
+function Get-PreferredGlobalConfigPath {
+    $paths = Get-GlobalConfigPaths
+    if ((Test-Path $paths[0]) -or -not (Test-Path $paths[1])) {
+        return $paths[0]
+    }
+    return $paths[1]
+}
+
+function Get-ConfigValueFromFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Key,
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFile
+    )
+
+    if (-not (Test-Path $ConfigFile)) {
+        return $null
+    }
+
+    try {
+        $config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        if ($config.PSObject.Properties.Name -contains $Key) {
+            return $config.$Key
+        }
+    }
+    catch {
+        Write-Verbose "Failed to read config file '$ConfigFile': $_"
+    }
+
+    return $null
+}
+
+function Test-ConfigValueExistsInFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Key,
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFile
+    )
+
+    if (-not (Test-Path $ConfigFile)) {
+        return $false
+    }
+
+    try {
+        $config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        return ($config.PSObject.Properties.Name -contains $Key)
+    }
+    catch {
+        Write-Verbose "Failed to inspect config file '$ConfigFile': $_"
+        return $false
+    }
+}
+
 # Read a value from .specify/config.json
 # Usage: Get-ConfigValue -Key "git_mode" [-Default "branch"] [-ConfigFile "path"]
 # Returns the value or default if not found
@@ -232,27 +295,27 @@ function Get-ConfigValue {
         [string]$ConfigFile = ""
     )
 
-    if (-not $ConfigFile) {
-        $repoRoot = Get-RepoRoot
-        $ConfigFile = Join-Path $repoRoot ".specify/config.json"
+    $repoRoot = Get-RepoRoot
+    $repoConfigFile = Join-Path $repoRoot ".specify/config.json"
+    $candidateFiles = @()
+
+    if ($ConfigFile) {
+        $candidateFiles += $ConfigFile
+        if ($ConfigFile -eq $repoConfigFile) {
+            $candidateFiles += Get-GlobalConfigPaths
+        }
     }
-    $configFile = $ConfigFile
-
-    if (-not (Test-Path $configFile)) {
-        return $Default
+    else {
+        $candidateFiles += $repoConfigFile
+        $candidateFiles += Get-GlobalConfigPaths
     }
 
-    try {
-        $config = Get-Content $configFile -Raw | ConvertFrom-Json
-        $value = $config.$Key
-
-        if ($null -ne $value -and $value -ne "") {
+    foreach ($candidate in $candidateFiles) {
+        if (Test-ConfigValueExistsInFile -Key $Key -ConfigFile $candidate) {
+            $value = Get-ConfigValueFromFile -Key $Key -ConfigFile $candidate
             return $value
         }
-        return $Default
     }
-    catch {
-        Write-Verbose "Failed to read config file: $_"
-        return $Default
-    }
+
+    return $Default
 }

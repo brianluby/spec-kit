@@ -60,7 +60,7 @@ def valid_manifest_data():
         "provides": {
             "commands": [
                 {
-                    "name": "speckit.test.hello",
+                    "name": "speckit.test-ext.hello",
                     "file": "commands/hello.md",
                     "description": "Test command",
                 }
@@ -68,7 +68,7 @@ def valid_manifest_data():
         },
         "hooks": {
             "after_tasks": {
-                "command": "speckit.test.hello",
+                "command": "speckit.test-ext.hello",
                 "optional": True,
                 "prompt": "Run test?",
             }
@@ -137,7 +137,7 @@ class TestExtensionManifest:
         assert manifest.version == "1.0.0"
         assert manifest.description == "A test extension"
         assert len(manifest.commands) == 1
-        assert manifest.commands[0]["name"] == "speckit.test.hello"
+        assert manifest.commands[0]["name"] == "speckit.test-ext.hello"
 
     def test_missing_required_field(self, temp_dir):
         """Test manifest missing required field."""
@@ -279,6 +279,17 @@ class TestExtensionRegistry:
         assert registry2.is_installed("test-ext")
         assert registry2.get("test-ext")["version"] == "1.0.0"
 
+    def test_keys(self, temp_dir):
+        """Test listing installed extension IDs."""
+        extensions_dir = temp_dir / "extensions"
+        extensions_dir.mkdir()
+
+        registry = ExtensionRegistry(extensions_dir)
+        registry.add("test-ext", {"version": "1.0.0"})
+        registry.add("other-ext", {"version": "1.0.0"})
+
+        assert registry.keys() == {"test-ext", "other-ext"}
+
 
 # ===== ExtensionManager Tests =====
 
@@ -400,6 +411,55 @@ class TestExtensionManager:
         assert backup_file.exists()
         assert backup_file.read_text() == "test: config"
 
+    def test_install_rejects_core_command_shadowing(
+        self, extension_dir, project_dir, monkeypatch
+    ):
+        """Extensions must not shadow built-in spec-kit commands."""
+        monkeypatch.setattr(
+            "specify_cli.extensions.CORE_COMMAND_NAMES", {"speckit.test-ext.hello"}
+        )
+
+        manager = ExtensionManager(project_dir)
+        with pytest.raises(ExtensionError, match="shadow core spec-kit commands"):
+            manager.install_from_directory(
+                extension_dir, "0.1.0", register_commands=False
+            )
+
+    def test_install_rejects_other_extension_command_collision(
+        self, extension_dir, project_dir, monkeypatch
+    ):
+        """Extensions must not overwrite commands from other installed extensions."""
+        manager = ExtensionManager(project_dir)
+        monkeypatch.setattr(
+            manager,
+            "_get_installed_command_name_map",
+            lambda: {"speckit.test-ext.hello": "legacy-ext"},
+        )
+
+        with pytest.raises(ExtensionError, match="collide with installed extensions"):
+            manager.install_from_directory(
+                extension_dir, "0.1.0", register_commands=False
+            )
+
+    def test_install_rejects_aliases_outside_extension_namespace(
+        self, extension_dir, project_dir
+    ):
+        """Aliases must stay inside the manifest extension namespace."""
+        import yaml
+
+        manifest_path = extension_dir / "extension.yml"
+        manifest_data = yaml.safe_load(manifest_path.read_text())
+        manifest_data["provides"]["commands"][0]["aliases"] = [
+            "speckit.other-ext.shortcut"
+        ]
+        manifest_path.write_text(yaml.safe_dump(manifest_data))
+
+        manager = ExtensionManager(project_dir)
+        with pytest.raises(ValidationError, match="does not match manifest id"):
+            manager.install_from_directory(
+                extension_dir, "0.1.0", register_commands=False
+            )
+
 
 # ===== CommandRegistrar Tests =====
 
@@ -472,10 +532,10 @@ $ARGUMENTS
         )
 
         assert len(registered) == 1
-        assert "speckit.test.hello" in registered
+        assert "speckit.test-ext.hello" in registered
 
         # Check command file was created
-        cmd_file = claude_dir / "speckit.test.hello.md"
+        cmd_file = claude_dir / "speckit.test-ext.hello.md"
         assert cmd_file.exists()
 
         content = cmd_file.read_text()
@@ -498,15 +558,15 @@ $ARGUMENTS
         )
 
         assert len(registered) == 1
-        assert "speckit.test.hello" in registered
+        assert "speckit.test-ext.hello" in registered
 
-        cmd_file = project_dir / ".goose" / "recipes" / "speckit.test.hello.yaml"
+        cmd_file = project_dir / ".goose" / "recipes" / "speckit.test-ext.hello.yaml"
         assert cmd_file.exists()
 
         content = cmd_file.read_text()
         recipe = yaml.safe_load(content)
         assert recipe["version"] == "1.0.0"
-        assert recipe["title"] == "Test Hello"
+        assert recipe["title"] == "Test Ext Hello"
         assert recipe["description"] == "Test hello command"
         assert recipe["activities"] == ["Spec-Driven Development"]
         assert "# Test Hello Command" in recipe["prompt"]
@@ -533,9 +593,9 @@ $ARGUMENTS
             "provides": {
                 "commands": [
                     {
-                        "name": "speckit.alias.cmd",
+                        "name": "speckit.ext-alias.cmd",
                         "file": "commands/cmd.md",
-                        "aliases": ["speckit.shortcut"],
+                        "aliases": ["speckit.ext-alias.cmd-short"],
                     }
                 ]
             },
@@ -559,10 +619,10 @@ $ARGUMENTS
         )
 
         assert len(registered) == 2
-        assert "speckit.alias.cmd" in registered
-        assert "speckit.shortcut" in registered
-        assert (claude_dir / "speckit.alias.cmd.md").exists()
-        assert (claude_dir / "speckit.shortcut.md").exists()
+        assert "speckit.ext-alias.cmd" in registered
+        assert "speckit.ext-alias.cmd-short" in registered
+        assert (claude_dir / "speckit.ext-alias.cmd.md").exists()
+        assert (claude_dir / "speckit.ext-alias.cmd-short.md").exists()
 
 
 # ===== Utility Function Tests =====
@@ -617,7 +677,7 @@ class TestIntegration:
         assert installed[0]["id"] == "test-ext"
 
         # Verify command registered
-        cmd_file = project_dir / ".claude" / "commands" / "speckit.test.hello.md"
+        cmd_file = project_dir / ".claude" / "commands" / "speckit.test-ext.hello.md"
         assert cmd_file.exists()
 
         # Verify registry has registered commands (now a dict keyed by agent)
@@ -625,7 +685,7 @@ class TestIntegration:
         registered_commands = metadata["registered_commands"]
         # Check that the command is registered for at least one agent
         assert any(
-            "speckit.test.hello" in cmds for cmds in registered_commands.values()
+            "speckit.test-ext.hello" in cmds for cmds in registered_commands.values()
         )
 
         # Remove

@@ -247,6 +247,57 @@ get_feature_paths() {
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 
+get_global_config_paths() {
+    printf '%s\n' "$HOME/.specify/config.json"
+    printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/specify/config.json"
+}
+
+get_preferred_global_config_path() {
+    local home_config="$HOME/.specify/config.json"
+    local xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}/specify/config.json"
+
+    if [[ -f "$home_config" || ! -f "$xdg_config" ]]; then
+        echo "$home_config"
+    else
+        echo "$xdg_config"
+    fi
+}
+
+read_config_value_from_file() {
+    local key="$1"
+    local config_file="$2"
+
+    if [[ ! -f "$config_file" ]]; then
+        return 1
+    fi
+
+    local value=""
+    local found=0
+    if command -v jq &>/dev/null; then
+        if jq -e --arg key "$key" 'has($key)' "$config_file" >/dev/null 2>&1; then
+            value=$(jq -r --arg key "$key" '.[$key]' "$config_file" 2>/dev/null)
+            found=1
+        fi
+    else
+        if grep -q "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null; then
+            value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null | \
+                sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)
+            found=1
+        elif grep -q "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null; then
+            value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null | \
+                sed 's/.*:[[:space:]]*\([^,}]*\).*/\1/' | tr -d ' ' | head -1)
+            found=1
+        fi
+    fi
+
+    if [[ $found -eq 1 ]]; then
+        echo "$value"
+        return 0
+    fi
+
+    return 1
+}
+
 # Read a value from .specify/config.json
 # Usage: read_config_value "git_mode" [default_value] [config_file_path]
 # Returns the value or default if not found
@@ -255,39 +306,33 @@ read_config_value() {
     local default_value="${2:-}"
     local config_file="${3:-}"
 
-    if [[ -z "$config_file" ]]; then
-        local repo_root
-        repo_root=$(get_repo_root)
-        config_file="$repo_root/.specify/config.json"
-    fi
+    local repo_root
+    repo_root=$(get_repo_root)
+    local repo_config_file="$repo_root/.specify/config.json"
+    local candidate_files=()
 
-    if [[ ! -f "$config_file" ]]; then
-        echo "$default_value"
-        return
-    fi
-
-    local value=""
-    if command -v jq &>/dev/null; then
-        # Use jq if available (preferred)
-        value=$(jq -r ".$key // empty" "$config_file" 2>/dev/null)
-    else
-        # Fallback: simple grep/sed for JSON values
-        # Try quoted string first: "key": "value"
-        value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null | \
-            sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)
-
-        # If no quoted value found, try unquoted (booleans/numbers): "key": true/false/123
-        if [[ -z "$value" ]]; then
-            value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null | \
-                sed 's/.*:[[:space:]]*\([^,}]*\).*/\1/' | tr -d ' ' | head -1)
+    if [[ -n "$config_file" ]]; then
+        candidate_files+=("$config_file")
+        if [[ "$config_file" == "$repo_config_file" ]]; then
+            while IFS= read -r global_config; do
+                candidate_files+=("$global_config")
+            done < <(get_global_config_paths)
         fi
+    else
+        candidate_files+=("$repo_config_file")
+        while IFS= read -r global_config; do
+            candidate_files+=("$global_config")
+        done < <(get_global_config_paths)
     fi
 
-    if [[ -n "$value" ]]; then
+    local candidate value
+    for candidate in "${candidate_files[@]}"; do
+        value=$(read_config_value_from_file "$key" "$candidate") || continue
         echo "$value"
-    else
-        echo "$default_value"
-    fi
+        return
+    done
+
+    echo "$default_value"
 }
 
 # Read a value from a feature-level .feature-config.json
