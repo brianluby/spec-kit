@@ -251,9 +251,8 @@ function Get-ConfigValueFromFile {
 
     try {
         $config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
-        $value = $config.$Key
-        if ($null -ne $value -and $value -ne "") {
-            return $value
+        if ($config.PSObject.Properties.Name -contains $Key) {
+            return $config.$Key
         }
     }
     catch {
@@ -261,6 +260,28 @@ function Get-ConfigValueFromFile {
     }
 
     return $null
+}
+
+function Test-ConfigValueExistsInFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Key,
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFile
+    )
+
+    if (-not (Test-Path $ConfigFile)) {
+        return $false
+    }
+
+    try {
+        $config = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        return ($config.PSObject.Properties.Name -contains $Key)
+    }
+    catch {
+        Write-Verbose "Failed to inspect config file '$ConfigFile': $_"
+        return $false
+    }
 }
 
 # Read a value from .specify/config.json
@@ -290,8 +311,8 @@ function Get-ConfigValue {
     }
 
     foreach ($candidate in $candidateFiles) {
-        $value = Get-ConfigValueFromFile -Key $Key -ConfigFile $candidate
-        if ($null -ne $value -and $value -ne "") {
+        if (Test-ConfigValueExistsInFile -Key $Key -ConfigFile $candidate) {
+            $value = Get-ConfigValueFromFile -Key $Key -ConfigFile $candidate
             return $value
         }
     }

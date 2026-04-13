@@ -242,9 +242,9 @@ else
     fi
 
     # Read existing values
-    CURRENT_MODE=$(read_config_value "git_mode" "branch")
-    CURRENT_STRATEGY=$(read_config_value "worktree_strategy" "sibling")
-    CURRENT_PATH=$(read_config_value "worktree_custom_path" "")
+    CURRENT_MODE=$(read_config_value_from_file "git_mode" "$CONFIG_FILE" || echo "branch")
+    CURRENT_STRATEGY=$(read_config_value_from_file "worktree_strategy" "$CONFIG_FILE" || echo "sibling")
+    CURRENT_PATH=$(read_config_value_from_file "worktree_custom_path" "$CONFIG_FILE" || true)
 
     # Apply updates
     [[ -n "$MODE" ]] && CURRENT_MODE="$MODE"

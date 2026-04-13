@@ -272,19 +272,25 @@ read_config_value_from_file() {
     fi
 
     local value=""
+    local found=0
     if command -v jq &>/dev/null; then
-        value=$(jq -r ".$key // empty" "$config_file" 2>/dev/null)
+        if jq -e --arg key "$key" 'has($key)' "$config_file" >/dev/null 2>&1; then
+            value=$(jq -r --arg key "$key" '.[$key]' "$config_file" 2>/dev/null)
+            found=1
+        fi
     else
-        value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null | \
-            sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)
-
-        if [[ -z "$value" ]]; then
+        if grep -q "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null; then
+            value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null | \
+                sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)
+            found=1
+        elif grep -q "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null; then
             value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null | \
                 sed 's/.*:[[:space:]]*\([^,}]*\).*/\1/' | tr -d ' ' | head -1)
+            found=1
         fi
     fi
 
-    if [[ -n "$value" ]]; then
+    if [[ $found -eq 1 ]]; then
         echo "$value"
         return 0
     fi
