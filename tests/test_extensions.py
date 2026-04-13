@@ -279,6 +279,17 @@ class TestExtensionRegistry:
         assert registry2.is_installed("test-ext")
         assert registry2.get("test-ext")["version"] == "1.0.0"
 
+    def test_keys(self, temp_dir):
+        """Test listing installed extension IDs."""
+        extensions_dir = temp_dir / "extensions"
+        extensions_dir.mkdir()
+
+        registry = ExtensionRegistry(extensions_dir)
+        registry.add("test-ext", {"version": "1.0.0"})
+        registry.add("other-ext", {"version": "1.0.0"})
+
+        assert registry.keys() == {"test-ext", "other-ext"}
+
 
 # ===== ExtensionManager Tests =====
 
@@ -399,6 +410,103 @@ class TestExtensionManager:
         backup_file = backup_dir / "test-ext-config.yml"
         assert backup_file.exists()
         assert backup_file.read_text() == "test: config"
+
+    def test_install_rejects_core_command_shadowing(
+        self, extension_dir, project_dir, monkeypatch
+    ):
+        """Extensions must not shadow built-in spec-kit commands."""
+        monkeypatch.setattr(
+            "specify_cli.extensions.CORE_COMMAND_NAMES", {"speckit.test.hello"}
+        )
+
+        manager = ExtensionManager(project_dir)
+        with pytest.raises(ExtensionError, match="shadow core spec-kit commands"):
+            manager.install_from_directory(
+                extension_dir, "0.1.0", register_commands=False
+            )
+
+    def test_install_rejects_other_extension_command_collision(
+        self, temp_dir, project_dir
+    ):
+        """Extensions must not overwrite commands from other installed extensions."""
+        import yaml
+
+        manager = ExtensionManager(project_dir)
+
+        first_dir = temp_dir / "ext-one"
+        first_dir.mkdir()
+        first_manifest = {
+            "schema_version": "1.0",
+            "extension": {
+                "id": "ext-one",
+                "name": "Ext One",
+                "version": "1.0.0",
+                "description": "First extension",
+            },
+            "requires": {"speckit_version": ">=0.1.0"},
+            "provides": {
+                "commands": [
+                    {
+                        "name": "speckit.ext-one.sync",
+                        "file": "commands/sync.md",
+                        "aliases": ["speckit.ext-one.sync-short"],
+                    }
+                ]
+            },
+        }
+        (first_dir / "commands").mkdir()
+        (first_dir / "commands" / "sync.md").write_text(
+            "---\ndescription: Sync\n---\n\nSync"
+        )
+        (first_dir / "extension.yml").write_text(yaml.safe_dump(first_manifest))
+        manager.install_from_directory(first_dir, "0.1.0", register_commands=False)
+
+        second_dir = temp_dir / "ext-two"
+        second_dir.mkdir()
+        second_manifest = {
+            "schema_version": "1.0",
+            "extension": {
+                "id": "ext-two",
+                "name": "Ext Two",
+                "version": "1.0.0",
+                "description": "Second extension",
+            },
+            "requires": {"speckit_version": ">=0.1.0"},
+            "provides": {
+                "commands": [
+                    {
+                        "name": "speckit.ext-two.sync",
+                        "file": "commands/sync.md",
+                        "aliases": ["speckit.ext-one.sync-short"],
+                    }
+                ]
+            },
+        }
+        (second_dir / "commands").mkdir()
+        (second_dir / "commands" / "sync.md").write_text(
+            "---\ndescription: Sync\n---\n\nSync"
+        )
+        (second_dir / "extension.yml").write_text(yaml.safe_dump(second_manifest))
+
+        with pytest.raises(ExtensionError, match="collide with installed extensions"):
+            manager.install_from_directory(second_dir, "0.1.0", register_commands=False)
+
+    def test_install_rejects_aliases_outside_extension_namespace(
+        self, extension_dir, project_dir
+    ):
+        """Aliases must use the full namespaced command format."""
+        import yaml
+
+        manifest_path = extension_dir / "extension.yml"
+        manifest_data = yaml.safe_load(manifest_path.read_text())
+        manifest_data["provides"]["commands"][0]["aliases"] = ["speckit.shortcut"]
+        manifest_path.write_text(yaml.safe_dump(manifest_data))
+
+        manager = ExtensionManager(project_dir)
+        with pytest.raises(ValidationError, match="must follow pattern"):
+            manager.install_from_directory(
+                extension_dir, "0.1.0", register_commands=False
+            )
 
 
 # ===== CommandRegistrar Tests =====
@@ -533,9 +641,9 @@ $ARGUMENTS
             "provides": {
                 "commands": [
                     {
-                        "name": "speckit.alias.cmd",
+                        "name": "speckit.ext-alias.cmd",
                         "file": "commands/cmd.md",
-                        "aliases": ["speckit.shortcut"],
+                        "aliases": ["speckit.ext-alias.cmd-short"],
                     }
                 ]
             },
@@ -559,10 +667,10 @@ $ARGUMENTS
         )
 
         assert len(registered) == 2
-        assert "speckit.alias.cmd" in registered
-        assert "speckit.shortcut" in registered
-        assert (claude_dir / "speckit.alias.cmd.md").exists()
-        assert (claude_dir / "speckit.shortcut.md").exists()
+        assert "speckit.ext-alias.cmd" in registered
+        assert "speckit.ext-alias.cmd-short" in registered
+        assert (claude_dir / "speckit.ext-alias.cmd.md").exists()
+        assert (claude_dir / "speckit.ext-alias.cmd-short.md").exists()
 
 
 # ===== Utility Function Tests =====

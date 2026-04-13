@@ -44,7 +44,7 @@ provides:
     - name: string       # Required, pattern: ^speckit\.[a-z0-9-]+\.[a-z0-9-]+$
       file: string       # Required, relative path to command file
       description: string # Required
-      aliases: [string]  # Optional, array of alternate names
+      aliases: [string]  # Optional, array of alternate names using the same speckit.{extension-id}.{command-name} namespace
 
   config:                # Optional, array of config files
     - name: string       # Config file name
@@ -175,6 +175,9 @@ metadata = registry.get(extension_id: str)  # Optional[dict]
 
 # List all extensions
 extensions = registry.list()  # Dict[str, dict]
+
+# List installed extension IDs
+extension_ids = registry.keys()  # Set[str]
 
 # Check if installed
 is_installed = registry.is_installed(extension_id: str)  # bool

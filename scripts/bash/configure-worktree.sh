@@ -12,6 +12,7 @@ MODE=""
 STRATEGY=""
 CUSTOM_PATH=""
 SHOW_CONFIG=false
+GLOBAL_CONFIG=false
 
 show_help() {
     cat << 'EOF'
@@ -23,6 +24,7 @@ Options:
   --mode <branch|worktree>        Set git mode (default: branch)
   --strategy <nested|sibling|custom>  Set worktree placement strategy
   --path <path>                   Custom base path (required if strategy is 'custom')
+  --global                        Write user-level defaults instead of repo-level config
   --show                          Display current configuration
   --help, -h                      Show this help message
 
@@ -46,7 +48,30 @@ Examples:
 
   # Show current configuration
   configure-worktree.sh --show
+
+  # Set global defaults for all repos
+  configure-worktree.sh --global --mode worktree --strategy sibling
 EOF
+}
+
+show_config_source() {
+    local label="$1"
+    local config_file="$2"
+
+    if [[ -f "$config_file" ]]; then
+        echo "$label ($config_file):"
+        echo "  git_mode: $(read_config_value_from_file "git_mode" "$config_file" || echo "branch")"
+        echo "  worktree_strategy: $(read_config_value_from_file "worktree_strategy" "$config_file" || echo "sibling")"
+        local custom_path
+        custom_path=$(read_config_value_from_file "worktree_custom_path" "$config_file" || true)
+        if [[ -n "$custom_path" ]]; then
+            echo "  worktree_custom_path: $custom_path"
+        else
+            echo "  worktree_custom_path: (none)"
+        fi
+    else
+        echo "$label: (not configured)"
+    fi
 }
 
 # Parse command line arguments
@@ -80,6 +105,10 @@ while [[ $# -gt 0 ]]; do
             SHOW_CONFIG=true
             shift
             ;;
+        --global)
+            GLOBAL_CONFIG=true
+            shift
+            ;;
         --help|-h)
             show_help
             exit 0
@@ -94,20 +123,26 @@ done
 
 # Get repository root
 REPO_ROOT=$(get_repo_root)
-CONFIG_FILE="$REPO_ROOT/.specify/config.json"
+REPO_CONFIG_FILE="$REPO_ROOT/.specify/config.json"
+GLOBAL_CONFIG_FILE=$(get_preferred_global_config_path)
+CONFIG_FILE="$REPO_CONFIG_FILE"
+
+if $GLOBAL_CONFIG; then
+    CONFIG_FILE="$GLOBAL_CONFIG_FILE"
+fi
 
 # Show current configuration
 if $SHOW_CONFIG; then
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        echo "No configuration file found. Using defaults:"
-        echo "  git_mode: branch"
-        echo "  worktree_strategy: sibling"
-        echo "  worktree_custom_path: (none)"
+    show_config_source "Repo config" "$REPO_CONFIG_FILE"
+    show_config_source "Global config" "$GLOBAL_CONFIG_FILE"
+    echo "Effective values (repo overrides global overrides defaults):"
+    echo "  git_mode: $(read_config_value "git_mode" "branch")"
+    echo "  worktree_strategy: $(read_config_value "worktree_strategy" "sibling")"
+    effective_custom_path=$(read_config_value "worktree_custom_path" "")
+    if [[ -n "$effective_custom_path" ]]; then
+        echo "  worktree_custom_path: $effective_custom_path"
     else
-        echo "Current configuration ($CONFIG_FILE):"
-        echo "  git_mode: $(read_config_value "git_mode" "branch")"
-        echo "  worktree_strategy: $(read_config_value "worktree_strategy" "sibling")"
-        echo "  worktree_custom_path: $(read_config_value "worktree_custom_path" "(none)")"
+        echo "  worktree_custom_path: (none)"
     fi
     exit 0
 fi
@@ -158,8 +193,8 @@ if [[ -n "$CUSTOM_PATH" ]]; then
     fi
 fi
 
-# Ensure .specify directory exists
-mkdir -p "$REPO_ROOT/.specify"
+# Ensure config parent directory exists
+mkdir -p "$(dirname "$CONFIG_FILE")"
 
 # Read existing config or create empty object
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -230,9 +265,18 @@ else
 fi
 
 echo "Configuration updated:"
-echo "  git_mode: $(read_config_value "git_mode" "branch")"
-echo "  worktree_strategy: $(read_config_value "worktree_strategy" "sibling")"
-custom_path=$(read_config_value "worktree_custom_path" "")
+if $GLOBAL_CONFIG; then
+    echo "  scope: global ($CONFIG_FILE)"
+else
+    echo "  scope: repo ($CONFIG_FILE)"
+fi
+saved_mode=$(read_config_value_from_file "git_mode" "$CONFIG_FILE" || echo "branch")
+saved_strategy=$(read_config_value_from_file "worktree_strategy" "$CONFIG_FILE" || echo "sibling")
+custom_path=$(read_config_value_from_file "worktree_custom_path" "$CONFIG_FILE" || true)
+echo "  git_mode: $saved_mode"
+echo "  worktree_strategy: $saved_strategy"
 if [[ -n "$custom_path" ]]; then
     echo "  worktree_custom_path: $custom_path"
+else
+    echo "  worktree_custom_path: (none)"
 fi

@@ -21,6 +21,41 @@ from packaging import version as pkg_version
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
 
+CORE_COMMAND_FALLBACK = {
+    "speckit.analyze",
+    "speckit.architecture",
+    "speckit.checklist",
+    "speckit.clarify",
+    "speckit.constitution",
+    "speckit.implement",
+    "speckit.plan",
+    "speckit.prd",
+    "speckit.security",
+    "speckit.specify",
+    "speckit.tasks",
+    "speckit.taskstoissues",
+}
+EXTENSION_COMMAND_NAME_PATTERN = re.compile(r"^speckit\.([a-z0-9-]+)\.([a-z0-9-]+)$")
+
+
+def _load_core_command_names() -> set[str]:
+    """Return the reserved core spec-kit command names."""
+    names = set(CORE_COMMAND_FALLBACK)
+    repo_root = Path(__file__).resolve().parents[2]
+    for commands_dir in (
+        repo_root / "core_pack" / "commands",
+        repo_root / "templates" / "commands",
+    ):
+        if not commands_dir.exists():
+            continue
+        for command_file in commands_dir.glob("*.md"):
+            names.add(f"speckit.{command_file.stem}")
+    return names
+
+
+CORE_COMMAND_NAMES = _load_core_command_names()
+
+
 class ExtensionError(Exception):
     """Base exception for extension-related errors."""
 
@@ -251,6 +286,10 @@ class ExtensionRegistry:
         """
         return extension_id in self.data["extensions"]
 
+    def keys(self) -> set[str]:
+        """Return the installed extension IDs."""
+        return set(self.data["extensions"].keys())
+
 
 class ExtensionManager:
     """Manages extension lifecycle: installation, removal, updates."""
@@ -297,6 +336,63 @@ class ExtensionManager:
 
         return True
 
+    def _collect_manifest_command_names(self, manifest: ExtensionManifest) -> set[str]:
+        """Collect and validate command names and aliases from a manifest."""
+        command_names: set[str] = set()
+
+        for cmd in manifest.commands:
+            for name in [cmd["name"], *cmd.get("aliases", [])]:
+                match = EXTENSION_COMMAND_NAME_PATTERN.fullmatch(name)
+                if not match:
+                    raise ValidationError(
+                        f"Invalid extension command or alias '{name}': "
+                        "must follow pattern 'speckit.{extension-id}.{command-name}'"
+                    )
+                if name in command_names:
+                    raise ValidationError(
+                        f"Duplicate extension command or alias '{name}' in manifest"
+                    )
+                command_names.add(name)
+
+        return command_names
+
+    def _get_installed_command_name_map(self) -> Dict[str, str]:
+        """Map installed command names to the extension that owns them."""
+        command_map: Dict[str, str] = {}
+        for extension_id in self.registry.keys():
+            manifest_path = self.extensions_dir / extension_id / "extension.yml"
+            if not manifest_path.exists():
+                continue
+            manifest = ExtensionManifest(manifest_path)
+            for name in self._collect_manifest_command_names(manifest):
+                command_map[name] = extension_id
+        return command_map
+
+    def _validate_install_conflicts(self, manifest: ExtensionManifest):
+        """Reject installs that shadow core commands or installed extensions."""
+        requested_names = self._collect_manifest_command_names(manifest)
+
+        core_conflicts = sorted(requested_names & CORE_COMMAND_NAMES)
+        if core_conflicts:
+            conflicts = ", ".join(core_conflicts)
+            raise ExtensionError(
+                f"Extension '{manifest.id}' declares commands that shadow core spec-kit commands: {conflicts}"
+            )
+
+        installed_name_map = self._get_installed_command_name_map()
+        extension_conflicts = sorted(
+            (name, installed_name_map[name])
+            for name in requested_names
+            if name in installed_name_map and installed_name_map[name] != manifest.id
+        )
+        if extension_conflicts:
+            conflicts = ", ".join(
+                f"{name} (owned by {owner})" for name, owner in extension_conflicts
+            )
+            raise ExtensionError(
+                f"Extension '{manifest.id}' declares commands that collide with installed extensions: {conflicts}"
+            )
+
     def install_from_directory(
         self, source_dir: Path, speckit_version: str, register_commands: bool = True
     ) -> ExtensionManifest:
@@ -327,6 +423,8 @@ class ExtensionManager:
                 f"Extension '{manifest.id}' is already installed. "
                 f"Use 'specify extension remove {manifest.id}' first."
             )
+
+        self._validate_install_conflicts(manifest)
 
         # Install extension
         dest_dir = self.extensions_dir / manifest.id

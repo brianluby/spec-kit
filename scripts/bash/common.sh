@@ -247,36 +247,37 @@ get_feature_paths() {
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 
-# Read a value from .specify/config.json
-# Usage: read_config_value "git_mode" [default_value] [config_file_path]
-# Returns the value or default if not found
-read_config_value() {
-    local key="$1"
-    local default_value="${2:-}"
-    local config_file="${3:-}"
+get_global_config_paths() {
+    printf '%s\n' "$HOME/.specify/config.json"
+    printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/specify/config.json"
+}
 
-    if [[ -z "$config_file" ]]; then
-        local repo_root
-        repo_root=$(get_repo_root)
-        config_file="$repo_root/.specify/config.json"
+get_preferred_global_config_path() {
+    local home_config="$HOME/.specify/config.json"
+    local xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}/specify/config.json"
+
+    if [[ -f "$home_config" || ! -f "$xdg_config" ]]; then
+        echo "$home_config"
+    else
+        echo "$xdg_config"
     fi
+}
+
+read_config_value_from_file() {
+    local key="$1"
+    local config_file="$2"
 
     if [[ ! -f "$config_file" ]]; then
-        echo "$default_value"
-        return
+        return 1
     fi
 
     local value=""
     if command -v jq &>/dev/null; then
-        # Use jq if available (preferred)
         value=$(jq -r ".$key // empty" "$config_file" 2>/dev/null)
     else
-        # Fallback: simple grep/sed for JSON values
-        # Try quoted string first: "key": "value"
         value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$config_file" 2>/dev/null | \
             sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1)
 
-        # If no quoted value found, try unquoted (booleans/numbers): "key": true/false/123
         if [[ -z "$value" ]]; then
             value=$(grep -o "\"$key\"[[:space:]]*:[[:space:]]*[^,}\"]*" "$config_file" 2>/dev/null | \
                 sed 's/.*:[[:space:]]*\([^,}]*\).*/\1/' | tr -d ' ' | head -1)
@@ -285,9 +286,47 @@ read_config_value() {
 
     if [[ -n "$value" ]]; then
         echo "$value"
-    else
-        echo "$default_value"
+        return 0
     fi
+
+    return 1
+}
+
+# Read a value from .specify/config.json
+# Usage: read_config_value "git_mode" [default_value] [config_file_path]
+# Returns the value or default if not found
+read_config_value() {
+    local key="$1"
+    local default_value="${2:-}"
+    local config_file="${3:-}"
+
+    local repo_root
+    repo_root=$(get_repo_root)
+    local repo_config_file="$repo_root/.specify/config.json"
+    local candidate_files=()
+
+    if [[ -n "$config_file" ]]; then
+        candidate_files+=("$config_file")
+        if [[ "$config_file" == "$repo_config_file" ]]; then
+            while IFS= read -r global_config; do
+                candidate_files+=("$global_config")
+            done < <(get_global_config_paths)
+        fi
+    else
+        candidate_files+=("$repo_config_file")
+        while IFS= read -r global_config; do
+            candidate_files+=("$global_config")
+        done < <(get_global_config_paths)
+    fi
+
+    local candidate value
+    for candidate in "${candidate_files[@]}"; do
+        value=$(read_config_value_from_file "$key" "$candidate") || continue
+        echo "$value"
+        return
+    done
+
+    echo "$default_value"
 }
 
 # Read a value from a feature-level .feature-config.json

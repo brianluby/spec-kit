@@ -11,6 +11,8 @@ param(
 
     [string]$Path,
 
+    [switch]$Global,
+
     [switch]$Show,
 
     [switch]$Help
@@ -31,6 +33,7 @@ Options:
   -Mode <branch|worktree>           Set git mode (default: branch)
   -Strategy <nested|sibling|custom> Set worktree placement strategy
   -Path <path>                      Custom base path (required if strategy is 'custom')
+  -Global                           Write user-level defaults instead of repo-level config
   -Show                             Display current configuration
   -Help                             Show this help message
 
@@ -54,7 +57,38 @@ Examples:
 
   # Show current configuration
   ./configure-worktree.ps1 -Show
+
+  # Set global defaults for all repos
+  ./configure-worktree.ps1 -Global -Mode worktree -Strategy sibling
 "@
+}
+
+function Show-ConfigSource {
+    param(
+        [string]$Label,
+        [string]$ConfigFile
+    )
+
+    if (Test-Path $ConfigFile) {
+        $mode = Get-ConfigValueFromFile -Key 'git_mode' -ConfigFile $ConfigFile
+        if (-not $mode) { $mode = 'branch' }
+        $strategy = Get-ConfigValueFromFile -Key 'worktree_strategy' -ConfigFile $ConfigFile
+        if (-not $strategy) { $strategy = 'sibling' }
+        $customPath = Get-ConfigValueFromFile -Key 'worktree_custom_path' -ConfigFile $ConfigFile
+
+        Write-Host "$Label ($ConfigFile):"
+        Write-Host "  git_mode: $mode"
+        Write-Host "  worktree_strategy: $strategy"
+        if ($customPath) {
+            Write-Host "  worktree_custom_path: $customPath"
+        }
+        else {
+            Write-Host "  worktree_custom_path: (none)"
+        }
+    }
+    else {
+        Write-Host "$Label: (not configured)"
+    }
 }
 
 # Show help if requested
@@ -65,27 +99,23 @@ if ($Help) {
 
 # Get repository root and config file path
 $repoRoot = Get-RepoRoot
-$configFile = Join-Path $repoRoot ".specify/config.json"
+$repoConfigFile = Join-Path $repoRoot ".specify/config.json"
+$globalConfigFile = Get-PreferredGlobalConfigPath
+$configFile = if ($Global) { $globalConfigFile } else { $repoConfigFile }
 
 # Show current configuration
 if ($Show) {
-    if (-not (Test-Path $configFile)) {
-        Write-Host "No configuration file found. Using defaults:"
-        Write-Host "  git_mode: branch"
-        Write-Host "  worktree_strategy: sibling"
-        Write-Host "  worktree_custom_path: (none)"
+    Show-ConfigSource -Label 'Repo config' -ConfigFile $repoConfigFile
+    Show-ConfigSource -Label 'Global config' -ConfigFile $globalConfigFile
+    Write-Host 'Effective values (repo overrides global overrides defaults):'
+    Write-Host "  git_mode: $(Get-ConfigValue -Key 'git_mode' -Default 'branch')"
+    Write-Host "  worktree_strategy: $(Get-ConfigValue -Key 'worktree_strategy' -Default 'sibling')"
+    $customPath = Get-ConfigValue -Key 'worktree_custom_path' -Default ''
+    if ($customPath) {
+        Write-Host "  worktree_custom_path: $customPath"
     }
     else {
-        Write-Host "Current configuration ($configFile):"
-        Write-Host "  git_mode: $(Get-ConfigValue -Key 'git_mode' -Default 'branch')"
-        Write-Host "  worktree_strategy: $(Get-ConfigValue -Key 'worktree_strategy' -Default 'sibling')"
-        $customPath = Get-ConfigValue -Key 'worktree_custom_path' -Default ''
-        if ($customPath) {
-            Write-Host "  worktree_custom_path: $customPath"
-        }
-        else {
-            Write-Host "  worktree_custom_path: (none)"
-        }
+        Write-Host "  worktree_custom_path: (none)"
     }
     exit 0
 }
@@ -128,10 +158,10 @@ if ($Path) {
     }
 }
 
-# Ensure .specify directory exists
-$specifyDir = Join-Path $repoRoot ".specify"
-if (-not (Test-Path $specifyDir)) {
-    New-Item -ItemType Directory -Path $specifyDir -Force | Out-Null
+# Ensure config parent directory exists
+$configDir = Split-Path $configFile -Parent
+if (-not (Test-Path $configDir)) {
+    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
 }
 
 # Read existing config or create empty object
@@ -167,9 +197,22 @@ elseif ($Strategy -eq "nested" -or $Strategy -eq "sibling") {
 $config | ConvertTo-Json | Set-Content $configFile -Encoding UTF8
 
 Write-Host "Configuration updated:"
-Write-Host "  git_mode: $(Get-ConfigValue -Key 'git_mode' -Default 'branch')"
-Write-Host "  worktree_strategy: $(Get-ConfigValue -Key 'worktree_strategy' -Default 'sibling')"
-$customPath = Get-ConfigValue -Key 'worktree_custom_path' -Default ''
+if ($Global) {
+    Write-Host "  scope: global ($configFile)"
+}
+else {
+    Write-Host "  scope: repo ($configFile)"
+}
+$savedMode = Get-ConfigValueFromFile -Key 'git_mode' -ConfigFile $configFile
+if (-not $savedMode) { $savedMode = 'branch' }
+$savedStrategy = Get-ConfigValueFromFile -Key 'worktree_strategy' -ConfigFile $configFile
+if (-not $savedStrategy) { $savedStrategy = 'sibling' }
+$customPath = Get-ConfigValueFromFile -Key 'worktree_custom_path' -ConfigFile $configFile
+Write-Host "  git_mode: $savedMode"
+Write-Host "  worktree_strategy: $savedStrategy"
 if ($customPath) {
     Write-Host "  worktree_custom_path: $customPath"
+}
+else {
+    Write-Host "  worktree_custom_path: (none)"
 }
