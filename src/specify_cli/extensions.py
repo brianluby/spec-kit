@@ -348,6 +348,14 @@ class ExtensionManager:
                         f"Invalid extension command or alias '{name}': "
                         "must follow pattern 'speckit.{extension-id}.{command-name}'"
                     )
+                command_extension_id = match.group(1)
+                if command_extension_id != manifest.id:
+                    raise ValidationError(
+                        f"Invalid extension command or alias '{name}': "
+                        f"namespace extension-id '{command_extension_id}' does not match "
+                        f"manifest id '{manifest.id}'. Commands and aliases must use the "
+                        f"'speckit.{manifest.id}.*' namespace."
+                    )
                 if name in command_names:
                     raise ValidationError(
                         f"Duplicate extension command or alias '{name}' in manifest"
@@ -364,7 +372,14 @@ class ExtensionManager:
             if not manifest_path.exists():
                 continue
             manifest = ExtensionManifest(manifest_path)
-            for name in self._collect_manifest_command_names(manifest):
+            try:
+                command_names = self._collect_manifest_command_names(manifest)
+            except ValidationError as exc:
+                raise ExtensionError(
+                    f"Installed extension '{extension_id}' has an invalid manifest "
+                    f"at '{manifest_path}': {exc}"
+                ) from exc
+            for name in command_names:
                 command_map[name] = extension_id
         return command_map
 

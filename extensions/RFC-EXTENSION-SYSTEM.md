@@ -1376,7 +1376,7 @@ provides:
   commands:
     - name: "speckit.github.taskstoissues"
       file: "commands/taskstoissues.md"
-  aliases: ["speckit.jira.taskstoissues-short"]  # Backward compatibility alias within the extension namespace
+      aliases: ["speckit.github.taskstoissues-short"]  # Backward compatibility alias within the extension namespace
 ```
 
 AI agent registers both names, so old scripts work.
