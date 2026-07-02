@@ -13,67 +13,75 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Pre-Execution Checks
+
+**Check for extension hooks (before analysis)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.before_analyze` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Pre-Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Pre-Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+
+    Wait for the result of the hook command before proceeding to the Goal.
+    ```
+    After emitting the block above you MUST actually invoke the hook and wait for it to finish before continuing. Run it the same way you would run the command yourself in this agent/session (the invocation may differ from the literal `{command}` id shown above, e.g. a skills-mode agent runs it as `/skill:speckit-...` or `$speckit-...`). Emitting the block alone does not run the hook.
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+
 ## Goal
 
-Identify inconsistencies, duplications, ambiguities, and underspecified items across all available artifacts (`spec.md`, `plan.md`, `tasks.md`, and optionally `prd.md`, `ar.md`, `sec.md`) before implementation. This command MUST run only after `/speckit.tasks` has successfully produced a complete `tasks.md`.
+Identify inconsistencies, duplications, ambiguities, and underspecified items across the three core artifacts (`spec.md`, `plan.md`, `tasks.md`) before implementation. This command MUST run only after `__SPECKIT_COMMAND_TASKS__` has successfully produced a complete `tasks.md`.
 
 ## Operating Constraints
 
 **STRICTLY READ-ONLY**: Do **not** modify any files. Output a structured analysis report. Offer an optional remediation plan (user must explicitly approve before any follow-up editing commands would be invoked manually).
 
-**Constitution Authority**: The project constitution (`/memory/constitution.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks—not dilution, reinterpretation, or silent ignoring of the principle. If a principle itself needs to change, that must occur in a separate, explicit constitution update outside `/speckit.analyze`.
+**Constitution Authority**: The project constitution (`/memory/constitution.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks—not dilution, reinterpretation, or silent ignoring of the principle. If a principle itself needs to change, that must occur in a separate, explicit constitution update outside `__SPECKIT_COMMAND_ANALYZE__`.
 
 ## Execution Steps
 
 ### 1. Initialize Analysis Context
 
-Run `{SCRIPT}` once from repo root and parse JSON for `FEATURE_DIR`, `AVAILABLE_DOCS`, `PRD`, `ARD`, and `SEC`. Always parse the `PRD`/`ARD`/`SEC` fields from the JSON; then, in later steps, check whether the referenced paths actually exist or fall back to `AVAILABLE_DOCS`/feature-local defaults as described below. Derive absolute paths:
+Run `{SCRIPT}` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
 
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md
 - TASKS = FEATURE_DIR/tasks.md
-- PRD = `PRD` path from JSON (check existence; if missing, try FEATURE_DIR/prd.md or check AVAILABLE_DOCS)
-- AR = `ARD` path from JSON (check existence; if missing, try FEATURE_DIR/ar.md or check AVAILABLE_DOCS)
-- SEC = `SEC` path from JSON (check existence; if missing, try FEATURE_DIR/sec.md or check AVAILABLE_DOCS)
 
-Abort with an error message if any required file (spec.md or prd.md, plan.md, tasks.md) is missing (instruct the user to run missing prerequisite command). At least one requirements document (spec.md or prd.md) must exist.
+Abort with an error message if any required file is missing (instruct the user to run missing prerequisite command).
 For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 ### 2. Load Artifacts (Progressive Disclosure)
 
-Artifact reuse rules:
-
-- If an artifact was already loaded earlier in this conversation and has not changed (same path and newer content not detected), reuse prior extracted context instead of re-reading the full file.
-- Re-read a full artifact only when required (file changed, first access, or missing sections needed for a finding).
-- Prefer targeted section reads over whole-file reads.
-- Avoid repetitive "I already loaded X, now re-loading Y" narration; keep load reporting minimal.
-
 Load only the minimal necessary context from each artifact:
 
-**From spec.md (and/or prd.md if present):**
+**From spec.md:**
 
 - Overview/Context
-- Functional Requirements (MoSCoW requirements from prd.md if available)
+- Functional Requirements
 - Success Criteria (measurable outcomes — e.g., performance, security, availability, user success, business impact)
-- User Stories (prioritized stories from prd.md take precedence if available)
-- Acceptance Criteria (from prd.md if available, including User Story traceability)
+- User Stories
 - Edge Cases (if present)
-
-**From ar.md (if present):**
-
-- Selected architecture option and rationale
-- Driving Requirements (must trace to PRD/spec requirement IDs)
-- Implementation Guardrails
-- Component Overview and interfaces
-- Traceability Matrix
-
-**From sec.md (if present):**
-
-- Security requirements (SEC-* IDs)
-- Data classifications
-- CIA risk levels
-- Trust boundaries
-- Compliance requirements
 
 **From plan.md:**
 
@@ -133,17 +141,13 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Requirements with zero associated tasks
 - Tasks with no mapped requirement/story
 - Success Criteria requiring buildable work (performance, security, availability) not reflected in tasks
-- If sec.md exists: Security requirements (SEC-*) with no corresponding tasks
-- If ar.md exists: Implementation guardrails not reflected in tasks or plan
 
 #### F. Inconsistency
 
 - Terminology drift (same concept named differently across files)
-- Data entities referenced in plan but absent in spec/prd (or vice versa)
+- Data entities referenced in plan but absent in spec (or vice versa)
 - Task ordering contradictions (e.g., integration tasks before foundational setup tasks without dependency note)
 - Conflicting requirements (e.g., one requires Next.js while other specifies Vue)
-- If ar.md exists: Architecture driving requirements not matching PRD/spec requirement IDs
-- If sec.md exists: Data classifications inconsistent with data model entities
 
 ### 5. Severity Assignment
 
@@ -188,13 +192,45 @@ Output a Markdown report (no file writes) with the following structure:
 
 At end of report, output a concise Next Actions block:
 
-- If CRITICAL issues exist: Recommend resolving before `/speckit.implement`
+- If CRITICAL issues exist: Recommend resolving before `__SPECKIT_COMMAND_IMPLEMENT__`
 - If only LOW/MEDIUM: User may proceed, but provide improvement suggestions
-- Provide explicit command suggestions: e.g., "Run /speckit.specify with refinement", "Run /speckit.plan to adjust architecture", "Manually edit tasks.md to add coverage for 'performance-metrics'"
+- Provide explicit command suggestions: e.g., "Run __SPECKIT_COMMAND_SPECIFY__ with refinement", "Run __SPECKIT_COMMAND_PLAN__ to adjust architecture", "Manually edit tasks.md to add coverage for 'performance-metrics'"
 
 ### 8. Offer Remediation
 
 Ask the user: "Would you like me to suggest concrete remediation edits for the top N issues?" (Do NOT apply them automatically.)
+
+### 9. Check for extension hooks
+
+After reporting, check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.after_analyze` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    ```
+    After emitting the block above you MUST actually invoke the hook and wait for it to finish before continuing. Run it the same way you would run the command yourself in this agent/session (the invocation may differ from the literal `{command}` id shown above, e.g. a skills-mode agent runs it as `/skill:speckit-...` or `$speckit-...`). Emitting the block alone does not run the hook.
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
 ## Operating Principles
 

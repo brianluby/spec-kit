@@ -27,7 +27,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 1. **Setup**: Run `{SCRIPT}` from repo root and parse JSON for `FEATURE_DIR`, `AVAILABLE_DOCS`, `PRD`, and `ARD` (absolute paths). The script always outputs `PRD` and `ARD` fields, but the files may not exist yet. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 2. **Require PRD**: Check if the `PRD` path from the script exists; if not, try `FEATURE_DIR/prd.md`, then check `AVAILABLE_DOCS` for `prd.md`, then try `docs/PRD/<feature-prefix>-*.md`.
-   - If missing: ERROR "prd.md not found. Run /speckit.prd first to create the Product Requirements Document."
+   - If missing: ERROR "prd.md not found. Run __SPECKIT_COMMAND_PRD__ first to create the Product Requirements Document."
    - Read the resolved PRD document and extract:
      - Data Model entities and their fields
      - Interface Contract (exposure points)
@@ -107,7 +107,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - [ ] Full threat model required before implementation
    ```
 
-8. **Report**: Output path to generated `sec.md`, overall risk level, count of security requirements generated, and readiness for next phase (`/speckit.plan` or `/speckit.tasks`).
+8. **Report**: Output path to generated `sec.md`, overall risk level, count of security requirements generated, and readiness for next phase (`__SPECKIT_COMMAND_PLAN__` or `__SPECKIT_COMMAND_TASKS__`).
 
 ## Key Rules
 

@@ -41,7 +41,7 @@ provides:
     - name: "speckit.my-ext.hello"      # Must follow pattern: speckit.{ext-id}.{cmd}
       file: "commands/hello.md"
       description: "Say hello"
-      aliases: ["speckit.my-ext.hello-short"]  # Optional aliases within your extension namespace
+      aliases: ["speckit.my-ext.hi"]    # Optional aliases, same pattern
 
   config:                               # Optional: Config files
     - name: "my-ext-config.yml"
@@ -177,16 +177,16 @@ Compatibility requirements.
 
 What the extension provides.
 
-**Required sub-fields**:
+**Optional sub-fields**:
 
-- `commands`: Array of command objects (must have at least one)
+- `commands`: Array of command objects (at least one command or hook is required)
 
 **Command object**:
 
 - `name`: Command name (must match `speckit.{ext-id}.{command}`)
 - `file`: Path to command file (relative to extension root)
 - `description`: Command description (optional)
-- `aliases`: Alternative command names (optional, array)
+- `aliases`: Alternative command names (optional, array; each must match `speckit.{ext-id}.{command}`)
 
 ### Optional Fields
 
@@ -196,12 +196,22 @@ Integration hooks for automatic execution.
 
 Available hook points:
 
-- `after_tasks`: After `/speckit.tasks` completes
-- `after_implement`: After `/speckit.implement` completes (future)
+- `before_specify` / `after_specify`: Before/after specification generation
+- `before_plan` / `after_plan`: Before/after implementation planning
+- `before_tasks` / `after_tasks`: Before/after task generation
+- `before_implement` / `after_implement`: Before/after implementation
+- `before_analyze` / `after_analyze`: Before/after cross-artifact analysis
+- `before_checklist` / `after_checklist`: Before/after checklist generation
+- `before_clarify` / `after_clarify`: Before/after spec clarification
+- `before_constitution` / `after_constitution`: Before/after constitution update
+- `before_taskstoissues` / `after_taskstoissues`: Before/after tasks-to-issues conversion
+
+Each event accepts a single hook object or a list of hook objects (multiple commands on one event).
 
 Hook object:
 
-- `command`: Command to execute (must be in `provides.commands`)
+- `command`: Command to execute (typically from `provides.commands`, but can reference any registered command)
+- `priority`: Run order within the event (integer ≥ 1, default 10; lower runs first; equal priorities keep authoring order)
 - `optional`: If true, prompt user before executing
 - `prompt`: Prompt text for optional hooks
 - `description`: Hook description
@@ -332,6 +342,67 @@ echo "$config"
 
 ---
 
+## Excluding Files with `.extensionignore`
+
+Extension authors can create a `.extensionignore` file in the extension root to exclude files and folders from being copied when a user installs the extension with `specify extension add`. This is useful for keeping development-only files (tests, CI configs, docs source, etc.) out of the installed copy.
+
+### Format
+
+The file uses `.gitignore`-compatible patterns (one per line), powered by the [`pathspec`](https://pypi.org/project/pathspec/) library:
+
+- Blank lines are ignored
+- Lines starting with `#` are comments
+- `*` matches anything **except** `/` (does not cross directory boundaries)
+- `**` matches zero or more directories (e.g., `docs/**/*.draft.md`)
+- `?` matches any single character except `/`
+- A trailing `/` restricts a pattern to directories only
+- Patterns containing `/` (other than a trailing slash) are anchored to the extension root
+- Patterns without `/` match at any depth in the tree
+- `!` negates a previously excluded pattern (re-includes a file)
+- Backslashes in patterns are normalised to forward slashes for cross-platform compatibility
+- The `.extensionignore` file itself is always excluded automatically
+
+### Example
+
+```gitignore
+# .extensionignore
+
+# Development files
+tests/
+.github/
+.gitignore
+
+# Build artifacts
+__pycache__/
+*.pyc
+dist/
+
+# Documentation source (keep only the built README)
+docs/
+CONTRIBUTING.md
+```
+
+### Pattern Matching
+
+| Pattern | Matches | Does NOT match |
+|---------|---------|----------------|
+| `*.pyc` | Any `.pyc` file in any directory | — |
+| `tests/` | The `tests` directory (and all its contents) | A file named `tests` |
+| `docs/*.draft.md` | `docs/api.draft.md` (directly inside `docs/`) | `docs/sub/api.draft.md` (nested) |
+| `.env` | The `.env` file at any level | — |
+| `!README.md` | Re-includes `README.md` even if matched by an earlier pattern | — |
+| `docs/**/*.draft.md` | `docs/api.draft.md`, `docs/sub/api.draft.md` | — |
+
+### Unsupported Features
+
+The following `.gitignore` features are **not applicable** in this context:
+
+- **Multiple `.extensionignore` files**: Only a single file at the extension root is supported (`.gitignore` supports files in subdirectories)
+- **`$GIT_DIR/info/exclude` and `core.excludesFile`**: These are Git-specific and have no equivalent here
+- **Negation inside excluded directories**: Because file copying uses `shutil.copytree`, excluding a directory prevents recursion into it entirely. A negation pattern cannot re-include a file inside a directory that was itself excluded. For example, the combination `tests/` followed by `!tests/important.py` will **not** preserve `tests/important.py` — the `tests/` directory is skipped at the root level and its contents are never evaluated. To work around this, exclude the directory's contents individually instead of the directory itself (e.g., `tests/*.pyc` and `tests/.cache/` rather than `tests/`).
+
+---
+
 ## Validation Rules
 
 ### Extension ID
@@ -453,21 +524,21 @@ zip -r spec-kit-my-ext-1.0.0.zip extension.yml commands/ scripts/ docs/
 Users install with:
 
 ```bash
-specify extension add --from https://github.com/.../spec-kit-my-ext-1.0.0.zip
+specify extension add <extension-name> --from https://github.com/.../spec-kit-my-ext-1.0.0.zip
 ```
 
-### Option 3: Extension Catalog (Future)
+### Option 3: Community Reference Catalog
 
-Submit to official catalog:
+Submit to the community catalog for public discovery:
 
-1. **Fork** spec-kit repository
-2. **Add entry** to `extensions/catalog.json`
-3. **Create PR**
-4. **After merge**, users can install with:
+1. **Create a GitHub release** for your extension
+2. **File an issue** using the [Extension Submission](https://github.com/github/spec-kit/issues/new?template=extension_submission.yml) template
+3. **After review**, a maintainer updates the catalog and your extension becomes available:
+   - Users can browse `catalog.community.json` to discover your extension
+   - Users copy the entry to their own `catalog.json`
+   - Users install with: `specify extension add my-ext` (from their catalog)
 
-   ```bash
-   specify extension add my-ext  # No URL needed!
-   ```
+See the [Extension Publishing Guide](EXTENSION-PUBLISHING-GUIDE.md) for detailed submission instructions.
 
 ---
 
@@ -587,6 +658,23 @@ hooks:
     description: "Analyze tasks after generation"
 ```
 
+Multiple commands on one event, ordered by `priority` (lower runs first):
+
+```yaml
+# extension.yml
+hooks:
+  after_plan:
+    - command: "speckit.my-ext.verify"
+      priority: 5
+      optional: false
+      description: "Verify the plan"
+    - command: "speckit.my-ext.report"
+      priority: 10
+      optional: true
+      prompt: "Generate the report?"
+      description: "Generate a report from the plan"
+```
+
 ---
 
 ## Troubleshooting
@@ -599,7 +687,7 @@ hooks:
 
 **Error**: `Extension requires spec-kit >=0.2.0`
 
-- **Fix**: Update spec-kit with `uv tool install specify-cli --force`
+- **Fix**: Update spec-kit with `uv tool install specify-cli --force --from git+https://github.com/github/spec-kit.git`. The bare `specify-cli` package on PyPI is a different, unrelated project — installing it without `--from git+...` will give you a stub CLI that does not include `extension`, `preset`, or other spec-kit commands.
 
 **Error**: `Command file not found`
 
