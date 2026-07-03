@@ -1,5 +1,5 @@
 ---
-description: Identify underspecified areas in the current feature spec by asking mode-aware clarification questions (fast: 2, balanced: 4, detailed: 5) and encoding answers back into the spec.
+description: Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec.
 handoffs: 
   - label: Build Technical Plan
     agent: speckit.plan
@@ -17,11 +17,46 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Pre-Execution Checks
+
+**Check for extension hooks (before clarification)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.before_clarify` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Pre-Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Pre-Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+
+    Wait for the result of the hook command before proceeding to the Outline.
+    ```
+    After emitting the block above you MUST actually invoke the hook and wait for it to finish before continuing. Run it the same way you would run the command yourself in this agent/session (the invocation may differ from the literal `{command}` id shown above, e.g. a skills-mode agent runs it as `/skill:speckit-...` or `$speckit-...`). Emitting the block alone does not run the hook.
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+
 ## Outline
 
 Goal: Detect and reduce ambiguity or missing decision points in the active feature specification and record the clarifications directly in the spec file.
 
-Note: This clarification workflow is expected to run (and be completed) BEFORE invoking `/speckit.plan`. If the user explicitly states they are skipping clarification (e.g., exploratory spike), you may proceed, but must warn that downstream rework risk increases.
+Note: This clarification workflow is expected to run (and be completed) BEFORE invoking `__SPECKIT_COMMAND_PLAN__`. If the user explicitly states they are skipping clarification (e.g., exploratory spike), you may proceed, but must warn that downstream rework risk increases.
 
 Execution steps:
 
@@ -29,41 +64,32 @@ Execution steps:
    - `FEATURE_DIR`
    - `FEATURE_SPEC`
    - (Optionally capture `IMPL_PLAN`, `TASKS` for future chained flows.)
-   - If JSON parsing fails, abort and instruct user to re-run `/speckit.specify` or verify feature branch environment.
+   - If JSON parsing fails, abort and instruct user to re-run `__SPECKIT_COMMAND_SPECIFY__` or verify feature branch environment.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Mode-Aware Question Limit**:
+2. **IF EXISTS**: Load `/memory/constitution.md` for project principles and governance constraints.
+
+3. **Mode-Aware Question Limit**:
    After parsing the prerequisites JSON, determine the question limit based on the execution mode:
 
    a. Read the execution mode for the current feature:
       - If `FEATURE_DIR/.feature-config.json` exists, read the `mode` value
       - Otherwise, fall back to the project default from `.specify/config.json` (`defaultMode` key)
       - If neither exists, default to `balanced`
-      - **Backward compatibility**: If `.feature-config.json` does not exist (features created before adaptive execution modes were added), display: `"Note: No execution mode configured for this feature. Defaulting to balanced. Run /speckit.specify to set a mode explicitly."` and continue with balanced mode.
+      - **Backward compatibility**: If `.feature-config.json` does not exist (features created before adaptive execution modes were added), display: `"Note: No execution mode configured for this feature. Defaulting to balanced. Run __SPECKIT_COMMAND_SPECIFY__ to set a mode explicitly."` and continue with balanced mode.
 
-   b. Validate the mode is one of `fast`, `balanced`, or `detailed`. If invalid, emit: `"ERROR: Unknown execution mode '{value}'. Valid values: fast, balanced, detailed. Re-run /speckit.specify to reset."` and halt.
+   b. Validate the mode is one of `fast`, `balanced`, or `detailed`. If invalid, emit: `"ERROR: Unknown execution mode '{value}'. Valid values: fast, balanced, detailed. Re-run __SPECKIT_COMMAND_SPECIFY__ to reset."` and halt.
 
    c. Apply the mode-specific question quota:
       - `fast` → maximum **2** clarification questions
       - `balanced` → maximum **4** clarification questions
       - `detailed` → maximum **5** clarification questions (standard, no change)
 
-   d. Use this quota as the limit for the questioning loop in step 5 below (replacing the default maximum of 5).
+   d. Use this quota as the limit for the questioning loop in step 6 below (replacing the default maximum of 5).
 
-   e. Scan spec for risk triggers (using the keyword catalog from `contracts/risk-triggers.md`). If triggers are detected, notify the user before starting questions: `"⚠️  Risk triggers detected in spec: [<matched keywords>]. This is an informational warning for later planning; Architecture Review (AR) and Security Review (SEC) escalation, if needed, will be handled during /speckit.plan, not in this /speckit.clarify run."`
+   e. Scan spec for risk triggers (using the keyword catalog from `contracts/risk-triggers.md`). If triggers are detected, notify the user before starting questions: `"Risk triggers detected in spec: [<matched keywords>]. This is an informational warning for later planning; Architecture Review (AR) and Security Review (SEC) escalation, if needed, will be handled during __SPECKIT_COMMAND_PLAN__, not in this __SPECKIT_COMMAND_CLARIFY__ run."`
 
-3. Load requirements documents with quiet fallback (do not frame missing optional files as errors):
-   - Always load `FEATURE_SPEC` (`spec.md`) first if present.
-   - Then discover PRD candidates in this order and load any that exist:
-     1) `FEATURE_DIR/prd.md`
-     2) PRD path(s) explicitly referenced inside `spec.md` (if any)
-     3) `docs/PRD/<feature-prefix>-*.md` where `<feature-prefix>` is the numeric prefix from the feature directory/branch (e.g., `003`)
-   - If multiple PRD candidates exist, prefer the closest/most feature-specific source (feature dir > explicit reference > docs fallback), but you may still use multiple as supporting context.
-   - Also load AR/SEC documents when explicitly referenced by `spec.md` or discoverable via `docs/AR/<feature-prefix>-*.md` and `docs/SEC/<feature-prefix>-*.md`.
-   - Only emit an error if neither `spec.md` nor any PRD candidate can be found.
-   - When reporting what was loaded, use neutral wording like "Loaded requirements sources: ..."; do not output "No prd.md in the feature dir" style messages.
-
-   Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
+4. Load the current spec file. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
 
    Functional Scope & Behavior:
    - Core user goals & success criteria
@@ -119,8 +145,8 @@ Execution steps:
    - Clarification would not materially change implementation or validation strategy
    - Information is better deferred to planning phase (note internally)
 
-4. Generate (internally) a prioritized queue of candidate clarification questions (up to the mode-specific limit from step 2). Do NOT output them all at once. Apply these constraints:
-    - Maximum of 10 total questions across the whole session.
+5. Generate (internally) a prioritized queue of candidate clarification questions (maximum = mode quota from step 3). Do NOT output them all at once. Apply these constraints:
+    - Maximum of (mode quota) total questions across the whole session.
     - Each question must be answerable with EITHER:
        - A short multiple‑choice selection (2–5 distinct, mutually exclusive options), OR
        - A one-word / short‑phrase answer (explicitly constrain: "Answer in <=5 words").
@@ -128,9 +154,9 @@ Execution steps:
     - Ensure category coverage balance: attempt to cover the highest impact unresolved categories first; avoid asking two low-impact questions when a single high-impact area (e.g., security posture) is unresolved.
     - Exclude questions already answered, trivial stylistic preferences, or plan-level execution details (unless blocking correctness).
     - Favor clarifications that reduce downstream rework risk or prevent misaligned acceptance tests.
-    - If more categories remain unresolved than the question limit allows, select the top N by (Impact * Uncertainty) heuristic.
+    - If more than (mode quota) categories remain unresolved, select the top (mode quota) by (Impact * Uncertainty) heuristic.
 
-5. Sequential questioning loop (interactive):
+6. Sequential questioning loop (interactive):
     - Present EXACTLY ONE question at a time.
     - For multiple‑choice questions:
        - **Analyze all options** and determine the **most suitable option** based on:
@@ -162,14 +188,14 @@ Execution steps:
     - Stop asking further questions when:
        - All critical ambiguities resolved early (remaining queued items become unnecessary), OR
        - User signals completion ("done", "good", "no more"), OR
-       - You reach the mode-specific question limit (fast=2, balanced=4, detailed=5).
+       - You reach the mode quota.
     - Never reveal future queued questions in advance.
     - If no valid questions exist at start, immediately report no critical ambiguities.
 
-6. Integration after EACH accepted answer (incremental update approach):
-    - Maintain in-memory representation of the requirements document (spec.md or prd.md, whichever is the primary) plus the raw file contents.
+7. Integration after EACH accepted answer (incremental update approach):
+    - Maintain in-memory representation of the spec (loaded once at start) plus the raw file contents.
     - For the first integrated answer in this session:
-       - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the template if missing).
+       - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the spec template if missing).
        - Under it, create (if not present) a `### Session YYYY-MM-DD` subheading for today.
     - Append a bullet line immediately after acceptance: `- Q: <question> → A: <final answer>`.
     - Then immediately apply the clarification to the most appropriate section(s):
@@ -184,32 +210,95 @@ Execution steps:
     - Preserve formatting: do not reorder unrelated sections; keep heading hierarchy intact.
     - Keep each inserted clarification minimal and testable (avoid narrative drift).
 
-7. Validation (performed after EACH write plus final pass):
+8. Validation (performed after EACH write plus final pass):
    - Clarifications session contains exactly one bullet per accepted answer (no duplicates).
-   - Total asked (accepted) questions ≤ mode limit (fast=2, balanced=4, detailed=5).
+   - Total asked (accepted) questions ≤ mode quota.
    - Updated sections contain no lingering vague placeholders the new answer was meant to resolve.
    - No contradictory earlier statement remains (scan for now-invalid alternative choices removed).
    - Markdown structure valid; only allowed new headings: `## Clarifications`, `### Session YYYY-MM-DD`.
    - Terminology consistency: same canonical term used across all updated sections.
 
-8. Write the updated requirements document back to its source file (`prd.md` if that was the primary document, otherwise `FEATURE_SPEC`).
+9. Write the updated spec back to `FEATURE_SPEC`.
 
-9. Report completion (after questioning loop ends or early termination):
-   - Number of questions asked & answered.
-   - Path to updated spec.
-   - Sections touched (list names).
-   - Coverage summary table listing each taxonomy category with Status: Resolved (was Partial/Missing and addressed), Deferred (exceeds question quota or better suited for planning), Clear (already sufficient), Outstanding (still Partial/Missing but low impact).
-   - If any Outstanding or Deferred remain, recommend whether to proceed to `/speckit.plan` or run `/speckit.clarify` again later post-plan.
-   - Suggested next command.
+10. **Re-validate Spec Quality Checklist** (if it exists):
+   - Check if `FEATURE_DIR/checklists/requirements.md` exists.
+   - If it does NOT exist, skip this step silently.
+   - If it exists:
+     1. Read the checklist file.
+     2. Identify all GitHub task-list checkbox lines — lines matching `- [ ]`, `- [x]`, or `- [X]` (case-insensitive, tolerant of leading whitespace for nested items) outside of code fences. Ignore all other content (headings, notes, non-checkbox bullets, metadata).
+     3. For each checkbox line, record its current marker state (checked or unchecked) and item text into a before-snapshot list.
+      4. Re-evaluate each checkbox item against the **updated** spec (the version just saved in step 9).
+     5. For each checkbox item, update only if the checked/unchecked state actually changes:
+        - If the item now passes and was unchecked: change `[ ]` to `[x]`.
+        - If the item now fails and was checked: change `[x]`/`[X]` to `[ ]`.
+        - If the state is unchanged: leave the marker as-is (preserve existing case to avoid cosmetic diffs).
+     6. Save the updated checklist file. **Only toggle the `[ ]`/`[x]` marker portion of checkbox lines whose state changed.** All other file content — headings, metadata, notes, line ordering, whitespace — must remain unchanged to avoid noisy diffs.
+     7. Compare the before-snapshot with the current state to compute three lists for the Completion Report:
+        - **Newly passing**: items that changed from unchecked to checked.
+        - **Regressions**: items that changed from checked to unchecked.
+        - **Still unchecked**: items that remain unchecked.
+     8. Record the before/after pass counts as checked/total checkbox items (e.g., "12/16 → 15/16 items passing").
 
 Behavior rules:
 
 - If no meaningful ambiguities found (or all potential questions would be low-impact), respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding.
-- If no requirements document found (neither spec.md nor prd.md), instruct user to run `/speckit.specify` or `/speckit.prd` first (do not create a new document here).
-- Never exceed the mode-specific question limit: fast=2, balanced=4, detailed=5 (clarification retries for a single question do not count as new questions).
+- If spec file missing, instruct user to run `__SPECKIT_COMMAND_SPECIFY__` first (do not create a new spec here).
+- Never exceed the mode quota (clarification retries for a single question do not count as new questions).
 - Avoid speculative tech stack questions unless the absence blocks functional clarity.
 - Respect user early termination signals ("stop", "done", "proceed").
 - If no questions asked due to full coverage, output a compact coverage summary (all categories Clear) then suggest advancing.
 - If quota reached with unresolved high-impact categories remaining, explicitly flag them under Deferred with rationale.
 
 Context for prioritization: {ARGS}
+
+## Mandatory Post-Execution Hooks
+
+**You MUST complete this section before reporting completion to the user.**
+
+Check if `.specify/extensions.yml` exists in the project root.
+- If it does not exist, or no hooks are registered under `hooks.after_clarify`, skip to the Completion Report.
+- If it exists, read it and look for entries under the `hooks.after_clarify` key.
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue to the Completion Report.
+- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Mandatory hook** (`optional: false`) — **You MUST emit `EXECUTE_COMMAND:` for each mandatory hook**:
+    ```
+    ## Extension Hooks
+
+    **Automatic Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    ```
+    After emitting the block above you MUST actually invoke the hook and wait for it to finish before continuing. Run it the same way you would run the command yourself in this agent/session (the invocation may differ from the literal `{command}` id shown above, e.g. a skills-mode agent runs it as `/skill:speckit-...` or `$speckit-...`). Emitting the block alone does not run the hook.
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+
+## Completion Report
+
+Report completion (after questioning loop ends or early termination):
+- Number of questions asked & answered.
+- Path to updated spec.
+- Sections touched (list names).
+- Spec quality checklist status (if `FEATURE_DIR/checklists/requirements.md` was re-validated): show before/after pass counts (e.g., "Spec Quality Checklist: 12/16 → 15/16 items passing") and list any items that changed state — both newly checked (unchecked → checked) and any regressions (checked → unchecked). If any items remain unchecked, list them as areas needing attention.
+- Coverage summary table listing each taxonomy category with Status: Resolved (was Partial/Missing and addressed), Deferred (exceeds question quota or better suited for planning), Clear (already sufficient), Outstanding (still Partial/Missing but low impact).
+- If any Outstanding or Deferred remain, recommend whether to proceed to `__SPECKIT_COMMAND_PLAN__` or run `__SPECKIT_COMMAND_CLARIFY__` again later post-plan.
+- Suggested next command.
+
+## Done When
+
+- [ ] Spec ambiguities identified and clarifications integrated into spec file
+- [ ] Spec quality checklist re-validated against updated spec (if `FEATURE_DIR/checklists/requirements.md` exists)
+- [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
+- [ ] Completion reported to user with questions answered, sections touched, checklist status, and coverage summary

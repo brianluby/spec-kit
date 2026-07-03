@@ -24,7 +24,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-The text the user typed after `/speckit.prd` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `{ARGS}` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+The text the user typed after `__SPECKIT_COMMAND_PRD__` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `{ARGS}` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
 Given that feature description, do this:
 
@@ -122,7 +122,7 @@ Given that feature description, do this:
    - [ ] All @human-review sections - Review LLM-drafted content
    ```
 
-7. Report completion with branch name, PRD file path, and readiness for next phase (`/speckit.architecture` or `/speckit.security`).
+7. Report completion with branch name, PRD file path, and readiness for next phase (`__SPECKIT_COMMAND_ARCHITECTURE__` or `__SPECKIT_COMMAND_SECURITY__`).
 
    **CRITICAL - Worktree Mode Notification**: If `MODE` is `worktree`, you **MUST** include a prominent warning section at the end of your completion report:
 
@@ -135,7 +135,7 @@ Given that feature description, do this:
 
    **Worktree Path**: `[FEATURE_ROOT]`
 
-   **You must switch your coding agent/IDE to this directory** before running any subsequent commands (`/speckit.architecture`, `/speckit.security`, `/speckit.tasks`, etc.).
+   **You must switch your coding agent/IDE to this directory** before running any subsequent commands (`__SPECKIT_COMMAND_ARCHITECTURE__`, `__SPECKIT_COMMAND_SECURITY__`, `__SPECKIT_COMMAND_TASKS__`, etc.).
 
    ```bash
    cd [FEATURE_ROOT]

@@ -2,20 +2,25 @@
 
 set -e
 
-# Source common functions (for read_config_value)
-SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
-
 JSON_MODE=false
+DRY_RUN=false
+ALLOW_EXISTING=false
 SHORT_NAME=""
 BRANCH_NUMBER=""
+USE_TIMESTAMP=false
 ARGS=()
 i=1
 while [ $i -le $# ]; do
     arg="${!i}"
     case "$arg" in
-        --json) 
-            JSON_MODE=true 
+        --json)
+            JSON_MODE=true
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            ;;
+        --allow-existing-branch)
+            ALLOW_EXISTING=true
             ;;
         --short-name)
             if [ $((i + 1)) -gt $# ]; then
@@ -44,22 +49,29 @@ while [ $i -le $# ]; do
             fi
             BRANCH_NUMBER="$next_arg"
             ;;
-        --help|-h) 
-            echo "Usage: $0 [--json] [--short-name <name>] [--number N] <feature_description>"
+        --timestamp)
+            USE_TIMESTAMP=true
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--json] [--dry-run] [--allow-existing-branch] [--short-name <name>] [--number N] [--timestamp] <feature_description>"
             echo ""
             echo "Options:"
             echo "  --json              Output in JSON format"
-            echo "  --short-name <name> Provide a custom short name (2-4 words) for the branch"
+            echo "  --dry-run           Compute feature name and paths without creating directories or files"
+            echo "  --allow-existing-branch  Reuse an existing feature directory if it already exists"
+            echo "  --short-name <name> Provide a custom short name (2-4 words) for the feature"
             echo "  --number N          Specify branch number manually (overrides auto-detection)"
+            echo "  --timestamp         Use timestamp prefix (YYYYMMDD-HHMMSS) instead of sequential numbering"
             echo "  --help, -h          Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0 'Add user authentication system' --short-name 'user-auth'"
             echo "  $0 'Implement OAuth2 integration for API' --number 5"
+            echo "  $0 --timestamp --short-name 'user-auth' 'Add user authentication'"
             exit 0
             ;;
-        *) 
-            ARGS+=("$arg") 
+        *)
+            ARGS+=("$arg")
             ;;
     esac
     i=$((i + 1))
@@ -67,7 +79,14 @@ done
 
 FEATURE_DESCRIPTION="${ARGS[*]}"
 if [ -z "$FEATURE_DESCRIPTION" ]; then
-    echo "Usage: $0 [--json] [--short-name <name>] [--number N] <feature_description>" >&2
+    echo "Usage: $0 [--json] [--dry-run] [--allow-existing-branch] [--short-name <name>] [--number N] [--timestamp] <feature_description>" >&2
+    exit 1
+fi
+
+# Trim whitespace and validate description is not empty (e.g., user passed only whitespace)
+FEATURE_DESCRIPTION=$(echo "$FEATURE_DESCRIPTION" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+if [ -z "$FEATURE_DESCRIPTION" ]; then
+    echo "Error: Feature description cannot be empty or contain only whitespace" >&2
     exit 1
 fi
 
@@ -75,73 +94,23 @@ fi
 get_highest_from_specs() {
     local specs_dir="$1"
     local highest=0
-
+    
     if [ -d "$specs_dir" ]; then
-        # Use nullglob to handle empty directories gracefully
-        local old_nullglob=$(shopt -p nullglob 2>/dev/null || echo "shopt -u nullglob")
-        shopt -s nullglob
         for dir in "$specs_dir"/*; do
             [ -d "$dir" ] || continue
             dirname=$(basename "$dir")
-            number=$(echo "$dirname" | grep -o '^[0-9]\+' || echo "0")
-            number=$((10#$number))
-            if [ "$number" -gt "$highest" ]; then
-                highest=$number
-            fi
-        done
-        eval "$old_nullglob"
-    fi
-
-    echo "$highest"
-}
-
-# Function to get highest number from git branches
-get_highest_from_branches() {
-    local highest=0
-    
-    # Get all branches (local and remote)
-    branches=$(git branch -a 2>/dev/null || echo "")
-    
-    if [ -n "$branches" ]; then
-        while IFS= read -r branch; do
-            # Clean branch name: remove leading markers and remote prefixes
-            clean_branch=$(echo "$branch" | sed 's/^[* ]*//; s|^remotes/[^/]*/||')
-            
-            # Extract feature number if branch matches pattern ###-*
-            if echo "$clean_branch" | grep -q '^[0-9]\{3\}-'; then
-                number=$(echo "$clean_branch" | grep -o '^[0-9]\{3\}' || echo "0")
+            # Match sequential prefixes (>=3 digits), but skip timestamp dirs.
+            if echo "$dirname" | grep -Eq '^[0-9]{3,}-' && ! echo "$dirname" | grep -Eq '^[0-9]{8}-[0-9]{6}-'; then
+                number=$(echo "$dirname" | grep -Eo '^[0-9]+')
                 number=$((10#$number))
                 if [ "$number" -gt "$highest" ]; then
                     highest=$number
                 fi
             fi
-        done <<< "$branches"
+        done
     fi
     
     echo "$highest"
-}
-
-# Function to check existing branches (local and remote) and return next available number
-check_existing_branches() {
-    local specs_dir="$1"
-
-    # Fetch all remotes to get latest branch info (suppress errors if no remotes)
-    git fetch --all --prune 2>/dev/null || true
-
-    # Get highest number from ALL branches (not just matching short name)
-    local highest_branch=$(get_highest_from_branches)
-
-    # Get highest number from ALL specs (not just matching short name)
-    local highest_spec=$(get_highest_from_specs "$specs_dir")
-
-    # Take the maximum of both
-    local max_num=$highest_branch
-    if [ "$highest_spec" -gt "$max_num" ]; then
-        max_num=$highest_spec
-    fi
-
-    # Return next number
-    echo $((max_num + 1))
 }
 
 # Function to clean and format a branch name
@@ -150,80 +119,18 @@ clean_branch_name() {
     echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//' | sed 's/-$//'
 }
 
-# Calculate worktree path based on strategy
-# Usage: calculate_worktree_path <branch_name> <repo_root>
-# Returns: absolute path where worktree should be created
-# Naming convention: <repo_name>-<branch_name> for sibling/custom strategies
-calculate_worktree_path() {
-    local branch_name="$1"
-    local repo_root="$2"
-    local config_file="$repo_root/.specify/config.json"
-    local strategy
-    local custom_path
-    local repo_name
-
-    strategy=$(read_config_value "worktree_strategy" "sibling" "$config_file")
-    custom_path=$(read_config_value "worktree_custom_path" "" "$config_file")
-    repo_name=$(basename "$repo_root")
-
-    case "$strategy" in
-        nested)
-            # Nested uses just branch name since it's inside the repo
-            echo "$repo_root/.worktrees/$branch_name"
-            ;;
-        sibling)
-            # Sibling uses repo_name-branch_name for clarity
-            echo "$(dirname "$repo_root")/${repo_name}-${branch_name}"
-            ;;
-        custom)
-            if [[ -n "$custom_path" ]]; then
-                # Custom also uses repo_name-branch_name for clarity
-                echo "$custom_path/${repo_name}-${branch_name}"
-            else
-                # Fallback to nested if custom path not set
-                echo "$repo_root/.worktrees/$branch_name"
-            fi
-            ;;
-        *)
-            # Default to nested
-            echo "$repo_root/.worktrees/$branch_name"
-            ;;
-    esac
-}
-
-# Check if a git branch exists (locally or remotely)
-# Usage: branch_exists <branch_name>
-# Returns: 0 if exists, 1 if not
-branch_exists() {
-    local branch_name="$1"
-    # Check local branches
-    if git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
-        return 0
-    fi
-    # Check remote branches
-    if git rev-parse --verify "origin/$branch_name" >/dev/null 2>&1; then
-        return 0
-    fi
-    return 1
-}
-
-# Resolve repository root using common.sh functions which prioritize .specify over git
+# Resolve repository root using common.sh functions which prioritize .specify
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-REPO_ROOT=$(get_repo_root)
-
-# Check if git is available at this repo root (not a parent)
-if has_git; then
-    HAS_GIT=true
-else
-    HAS_GIT=false
-fi
+REPO_ROOT=$(get_repo_root) || exit 1
 
 cd "$REPO_ROOT"
 
 SPECS_DIR="$REPO_ROOT/specs"
-mkdir -p "$SPECS_DIR"
+if [ "$DRY_RUN" != true ]; then
+    mkdir -p "$SPECS_DIR"
+fi
 
 # Function to generate branch name with stop word filtering and length filtering
 generate_branch_name() {
@@ -233,7 +140,7 @@ generate_branch_name() {
     local stop_words="^(i|a|an|the|to|for|of|in|on|at|by|with|from|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|should|could|can|may|might|must|shall|this|that|these|those|my|your|our|their|want|need|add|get|set)$"
     
     # Convert to lowercase and split into words
-    local clean_name=$(echo "$description" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/ /g')
+    local clean_name=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/ /g')
     
     # Filter words: remove stop words and words shorter than 3 chars (unless they're uppercase acronyms in original)
     local meaningful_words=()
@@ -245,8 +152,10 @@ generate_branch_name() {
         if ! echo "$word" | grep -qiE "$stop_words"; then
             if [ ${#word} -ge 3 ]; then
                 meaningful_words+=("$word")
-            elif echo "$description" | grep -q "\b${word^^}\b"; then
-                # Keep short words if they appear as uppercase in original (likely acronyms)
+            # Keep short words that appear as an uppercase acronym in the original.
+            # Uppercase via tr and match with grep -w (both portable) rather than
+            # bash's 4+ "^^" case expansion (breaks on macOS bash 3.2) and \b (non-POSIX).
+            elif printf '%s' "$description" | grep -qw -- "$(printf '%s' "$word" | tr '[:lower:]' '[:upper:]')"; then
                 meaningful_words+=("$word")
             fi
         fi
@@ -282,29 +191,36 @@ else
     BRANCH_SUFFIX=$(generate_branch_name "$FEATURE_DESCRIPTION")
 fi
 
-# Determine branch number
-if [ -z "$BRANCH_NUMBER" ]; then
-    if [ "$HAS_GIT" = true ]; then
-        # Check existing branches on remotes
-        BRANCH_NUMBER=$(check_existing_branches "$SPECS_DIR")
-    else
-        # Fall back to local directory check
+# Warn if --number and --timestamp are both specified
+if [ "$USE_TIMESTAMP" = true ] && [ -n "$BRANCH_NUMBER" ]; then
+    >&2 echo "[specify] Warning: --number is ignored when --timestamp is used"
+    BRANCH_NUMBER=""
+fi
+
+# Determine branch prefix
+if [ "$USE_TIMESTAMP" = true ]; then
+    FEATURE_NUM=$(date +%Y%m%d-%H%M%S)
+    BRANCH_NAME="${FEATURE_NUM}-${BRANCH_SUFFIX}"
+else
+    # Determine branch number from existing feature directories
+    if [ -z "$BRANCH_NUMBER" ]; then
         HIGHEST=$(get_highest_from_specs "$SPECS_DIR")
         BRANCH_NUMBER=$((HIGHEST + 1))
     fi
-fi
 
-# Force base-10 interpretation to prevent octal conversion (e.g., 010 → 8 in octal, but should be 10 in decimal)
-FEATURE_NUM=$(printf "%03d" "$((10#$BRANCH_NUMBER))")
-BRANCH_NAME="${FEATURE_NUM}-${BRANCH_SUFFIX}"
+    # Force base-10 interpretation to prevent octal conversion (e.g., 010 → 8 in octal, but should be 10 in decimal)
+    FEATURE_NUM=$(printf "%03d" "$((10#$BRANCH_NUMBER))")
+    BRANCH_NAME="${FEATURE_NUM}-${BRANCH_SUFFIX}"
+fi
 
 # GitHub enforces a 244-byte limit on branch names
 # Validate and truncate if necessary
 MAX_BRANCH_LENGTH=244
 if [ ${#BRANCH_NAME} -gt $MAX_BRANCH_LENGTH ]; then
     # Calculate how much we need to trim from suffix
-    # Account for: feature number (3) + hyphen (1) = 4 chars
-    MAX_SUFFIX_LENGTH=$((MAX_BRANCH_LENGTH - 4))
+    # Account for prefix length: timestamp (15) + hyphen (1) = 16, or sequential (3) + hyphen (1) = 4
+    PREFIX_LENGTH=$(( ${#FEATURE_NUM} + 1 ))
+    MAX_SUFFIX_LENGTH=$((MAX_BRANCH_LENGTH - PREFIX_LENGTH))
     
     # Truncate suffix at word boundary if possible
     TRUNCATED_SUFFIX=$(echo "$BRANCH_SUFFIX" | cut -c1-$MAX_SUFFIX_LENGTH)
@@ -319,136 +235,67 @@ if [ ${#BRANCH_NAME} -gt $MAX_BRANCH_LENGTH ]; then
     >&2 echo "[specify] Truncated to: $BRANCH_NAME (${#BRANCH_NAME} bytes)"
 fi
 
-# Determine git mode and create feature
-CONFIG_FILE="$REPO_ROOT/.specify/config.json"
-GIT_MODE=$(read_config_value "git_mode" "branch" "$CONFIG_FILE")
-
-# Worktree-specific pre-flight checks (only in worktree mode)
-if [ "$HAS_GIT" = true ] && [ "$GIT_MODE" = "worktree" ]; then
-    # Check for uncommitted changes (warning only, per FR-013)
-    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
-        >&2 echo "[specify] Warning: Uncommitted changes in working directory will not appear in new worktree."
-    fi
-
-    # Check for orphaned worktrees (warning only, per FR-012)
-    if git worktree list --porcelain 2>/dev/null | grep -q "prunable"; then
-        >&2 echo "[specify] Warning: Orphaned worktree entries detected. Run 'git worktree prune' to clean up."
-    fi
-fi
-CREATION_MODE="branch"
-FEATURE_ROOT="$REPO_ROOT"
-WORKTREE_PATH=""
-
-if [ "$HAS_GIT" = true ]; then
-    if [ "$GIT_MODE" = "worktree" ]; then
-        # Worktree mode
-        WORKTREE_PATH=$(calculate_worktree_path "$BRANCH_NAME" "$REPO_ROOT")
-        WORKTREE_PARENT=$(dirname "$WORKTREE_PATH")
-
-        # Check if parent path is writable (T029)
-        if [[ ! -d "$WORKTREE_PARENT" ]]; then
-            mkdir -p "$WORKTREE_PARENT" 2>/dev/null || {
-                >&2 echo "[specify] Error: Cannot create worktree parent directory: $WORKTREE_PARENT"
-                >&2 echo "[specify] Suggestions:"
-                >&2 echo "[specify]   - Use nested strategy: configure-worktree.sh --strategy nested"
-                >&2 echo "[specify]   - Switch to branch mode: configure-worktree.sh --mode branch"
-                >&2 echo "[specify]   - Create the directory manually and retry"
-                exit 1
-            }
-        elif [[ ! -w "$WORKTREE_PARENT" ]]; then
-            >&2 echo "[specify] Error: Worktree parent directory is not writable: $WORKTREE_PARENT"
-            >&2 echo "[specify] Suggestions:"
-            >&2 echo "[specify]   - Use nested strategy: configure-worktree.sh --strategy nested"
-            >&2 echo "[specify]   - Switch to branch mode: configure-worktree.sh --mode branch"
-            >&2 echo "[specify]   - Fix directory permissions and retry"
-            exit 1
-        fi
-    fi
-
-    if [ "$GIT_MODE" = "worktree" ]; then
-        # Check if branch already exists
-        if branch_exists "$BRANCH_NAME"; then
-            # Attach worktree to existing branch (without -b flag)
-            worktree_add_error=""
-            if worktree_add_error=$(git worktree add "$WORKTREE_PATH" "$BRANCH_NAME" 2>&1); then
-                CREATION_MODE="worktree"
-                FEATURE_ROOT="$WORKTREE_PATH"
-            else
-                >&2 echo "[specify] Error: Failed to create worktree for existing branch '$BRANCH_NAME' at $WORKTREE_PATH"
-                if [ -n "$worktree_add_error" ]; then
-                    >&2 printf '%s\n' "$worktree_add_error"
-                fi
-                >&2 echo "[specify] Suggestions:"
-                >&2 echo "[specify]   - Check existing worktrees: git worktree list"
-                >&2 echo "[specify]   - Remove stale worktree: git worktree remove <path>"
-                >&2 echo "[specify]   - Prune orphaned entries: git worktree prune"
-                >&2 echo "[specify]   - Switch to branch mode: configure-worktree.sh --mode branch"
-                exit 1
-            fi
-        else
-            # Create new branch with worktree
-            if git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" 2>/dev/null; then
-                CREATION_MODE="worktree"
-                FEATURE_ROOT="$WORKTREE_PATH"
-            else
-                >&2 echo "[specify] Error: Failed to create worktree for new branch '$BRANCH_NAME' at $WORKTREE_PATH"
-                >&2 echo "[specify] Suggestions:"
-                >&2 echo "[specify]   - Check existing worktrees: git worktree list"
-                >&2 echo "[specify]   - Prune orphaned entries: git worktree prune"
-                >&2 echo "[specify]   - Switch to branch mode: configure-worktree.sh --mode branch"
-                exit 1
-            fi
-        fi
-    else
-        # Standard branch mode
-        branch_create_error=""
-        if ! branch_create_error=$(git checkout -b "$BRANCH_NAME" 2>&1); then
-            if git branch --list "$BRANCH_NAME" | grep -q .; then
-                >&2 echo "[specify] Error: Branch '$BRANCH_NAME' already exists. Please use a different feature name or specify a different number with --number."
-            else
-                >&2 echo "[specify] Error: Failed to create git branch '$BRANCH_NAME'."
-                if [ -n "$branch_create_error" ]; then
-                    >&2 printf '%s\n' "$branch_create_error"
-                else
-                    >&2 echo "[specify] Please check your git configuration and try again."
-                fi
-            fi
-            exit 1
-        fi
-        CREATION_MODE="branch"
-        FEATURE_ROOT="$REPO_ROOT"
-    fi
-else
-    >&2 echo "[specify] Warning: Git repository not detected; skipped branch creation for $BRANCH_NAME"
-    CREATION_MODE="branch"
-    FEATURE_ROOT="$REPO_ROOT"
-fi
-
-# Create feature directory and spec file
-# In worktree mode, create specs in the worktree; in branch mode, create in main repo
-if [ "$CREATION_MODE" = "worktree" ]; then
-    FEATURE_DIR="$FEATURE_ROOT/specs/$BRANCH_NAME"
-else
-    FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
-fi
-mkdir -p "$FEATURE_DIR"
-
-TEMPLATE="$REPO_ROOT/.specify/templates/spec-template.md"
+FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
 SPEC_FILE="$FEATURE_DIR/spec.md"
-if [ -f "$TEMPLATE" ]; then cp "$TEMPLATE" "$SPEC_FILE"; else touch "$SPEC_FILE"; fi
 
-# Set the SPECIFY_FEATURE environment variable for the current session
-export SPECIFY_FEATURE="$BRANCH_NAME"
+if [ "$DRY_RUN" != true ]; then
+    if [ -d "$FEATURE_DIR" ] && [ "$ALLOW_EXISTING" != true ]; then
+        if [ "$USE_TIMESTAMP" = true ]; then
+            >&2 echo "Error: Feature directory '$FEATURE_DIR' already exists. Rerun to get a new timestamp or use a different --short-name."
+        else
+            >&2 echo "Error: Feature directory '$FEATURE_DIR' already exists. Please use a different feature name or specify a different number with --number."
+        fi
+        exit 1
+    fi
+
+    mkdir -p "$FEATURE_DIR"
+
+    if [ ! -f "$SPEC_FILE" ]; then
+        TEMPLATE=$(resolve_template "spec-template" "$REPO_ROOT") || true
+        if [ -n "$TEMPLATE" ] && [ -f "$TEMPLATE" ]; then
+            cp "$TEMPLATE" "$SPEC_FILE"
+        else
+            echo "Warning: Spec template not found; created empty spec file" >&2
+            touch "$SPEC_FILE"
+        fi
+    fi
+
+    # Persist to .specify/feature.json so downstream commands can find the feature
+    _persist_feature_json "$REPO_ROOT" "$FEATURE_DIR"
+
+    # Inform the user how to set feature state in their own shell
+    printf '# To persist: export SPECIFY_FEATURE=%q\n' "$BRANCH_NAME" >&2
+    printf '#              export SPECIFY_FEATURE_DIRECTORY=%q\n' "$FEATURE_DIR" >&2
+fi
 
 if $JSON_MODE; then
-    printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s","FEATURE_ROOT":"%s","MODE":"%s","HAS_GIT":%s}\n' \
-        "$BRANCH_NAME" "$SPEC_FILE" "$FEATURE_NUM" "$FEATURE_ROOT" "$CREATION_MODE" "$HAS_GIT"
+    if command -v jq >/dev/null 2>&1; then
+        if [ "$DRY_RUN" = true ]; then
+            jq -cn \
+                --arg branch_name "$BRANCH_NAME" \
+                --arg spec_file "$SPEC_FILE" \
+                --arg feature_num "$FEATURE_NUM" \
+                '{BRANCH_NAME:$branch_name,SPEC_FILE:$spec_file,FEATURE_NUM:$feature_num,DRY_RUN:true}'
+        else
+            jq -cn \
+                --arg branch_name "$BRANCH_NAME" \
+                --arg spec_file "$SPEC_FILE" \
+                --arg feature_num "$FEATURE_NUM" \
+                '{BRANCH_NAME:$branch_name,SPEC_FILE:$spec_file,FEATURE_NUM:$feature_num}'
+        fi
+    else
+        if [ "$DRY_RUN" = true ]; then
+            printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s","DRY_RUN":true}\n' "$(json_escape "$BRANCH_NAME")" "$(json_escape "$SPEC_FILE")" "$(json_escape "$FEATURE_NUM")"
+        else
+            printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s"}\n' "$(json_escape "$BRANCH_NAME")" "$(json_escape "$SPEC_FILE")" "$(json_escape "$FEATURE_NUM")"
+        fi
+    fi
 else
     echo "BRANCH_NAME: $BRANCH_NAME"
     echo "SPEC_FILE: $SPEC_FILE"
     echo "FEATURE_NUM: $FEATURE_NUM"
-    echo "FEATURE_ROOT: $FEATURE_ROOT"
-    echo "MODE: $CREATION_MODE"
-    echo "HAS_GIT: $HAS_GIT"
-    echo "SPECIFY_FEATURE environment variable set to: $BRANCH_NAME"
+    if [ "$DRY_RUN" != true ]; then
+        printf '# To persist in your shell: export SPECIFY_FEATURE=%q\n' "$BRANCH_NAME"
+        printf '#                           export SPECIFY_FEATURE_DIRECTORY=%q\n' "$FEATURE_DIR"
+    fi
 fi

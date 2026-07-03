@@ -11,7 +11,6 @@
 #   --json              Output in JSON format
 #   --require-tasks     Require tasks.md to exist (for implementation phase)
 #   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
-#   --no-require-plan   Skip the plan.md requirement check
 #   --paths-only        Only output path variables (no validation)
 #   --help, -h          Show help message
 #
@@ -26,7 +25,6 @@ set -e
 JSON_MODE=false
 REQUIRE_TASKS=false
 INCLUDE_TASKS=false
-NO_REQUIRE_PLAN=false
 PATHS_ONLY=false
 
 for arg in "$@"; do
@@ -39,9 +37,6 @@ for arg in "$@"; do
             ;;
         --include-tasks)
             INCLUDE_TASKS=true
-            ;;
-        --no-require-plan)
-            NO_REQUIRE_PLAN=true
             ;;
         --paths-only)
             PATHS_ONLY=true
@@ -56,7 +51,6 @@ OPTIONS:
   --json              Output in JSON format
   --require-tasks     Require tasks.md to exist (for implementation phase)
   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
-  --no-require-plan   Skip the plan.md requirement check
   --paths-only        Only output path variables (no prerequisite validation)
   --help, -h          Show this help message
 
@@ -84,25 +78,45 @@ done
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Get feature paths and validate branch
-get_feature_paths
-check_feature_branch "$CURRENT_BRANCH" "$HAS_GIT" || exit 1
+# Get feature paths.
+# In --paths-only mode this is pure resolution, so pass --no-persist to opt out
+# of the feature.json write side effect (issue #3025).
+if $PATHS_ONLY; then
+    _paths_output=$(get_feature_paths --no-persist) || { echo "ERROR: Failed to resolve feature paths" >&2; exit 1; }
+else
+    _paths_output=$(get_feature_paths) || { echo "ERROR: Failed to resolve feature paths" >&2; exit 1; }
+fi
+eval "$_paths_output"
+unset _paths_output
 
-# If paths-only mode, output paths and exit (support JSON + paths-only combined)
+# If paths-only mode, output paths and exit (no validation)
 if $PATHS_ONLY; then
     if $JSON_MODE; then
-        # Minimal JSON paths payload (no validation performed) - use jq for proper JSON escaping
-        jq -n \
-            --arg repo_root "$REPO_ROOT" \
-            --arg branch "$CURRENT_BRANCH" \
-            --arg feature_dir "$FEATURE_DIR" \
-            --arg feature_spec "$FEATURE_SPEC" \
-            --arg impl_plan "$IMPL_PLAN" \
-            --arg tasks "$TASKS" \
-            --arg prd "$PRD" \
-            --arg ard "$ARD" \
-            --arg sec "$SEC" \
-            '{REPO_ROOT: $repo_root, BRANCH: $branch, FEATURE_DIR: $feature_dir, FEATURE_SPEC: $feature_spec, IMPL_PLAN: $impl_plan, TASKS: $tasks, PRD: $prd, ARD: $ard, SEC: $sec}'
+        # Minimal JSON paths payload (no validation performed)
+        _exec_mode=$(get_execution_mode "$FEATURE_DIR")
+        _risk_triggers=$(detect_risk_triggers "$FEATURE_SPEC")
+        if [[ -n "$_risk_triggers" ]]; then
+            _has_risk="true"
+        else
+            _has_risk="false"
+        fi
+        if has_jq; then
+            jq -cn \
+                --arg repo_root "$REPO_ROOT" \
+                --arg branch "$CURRENT_BRANCH" \
+                --arg feature_dir "$FEATURE_DIR" \
+                --arg feature_spec "$FEATURE_SPEC" \
+                --arg impl_plan "$IMPL_PLAN" \
+                --arg tasks "$TASKS" \
+                --arg execution_mode "$_exec_mode" \
+                --argjson has_risk_triggers "$_has_risk" \
+                --arg risk_triggers "$_risk_triggers" \
+                '{REPO_ROOT:$repo_root,BRANCH:$branch,FEATURE_DIR:$feature_dir,FEATURE_SPEC:$feature_spec,IMPL_PLAN:$impl_plan,TASKS:$tasks,EXECUTION_MODE:$execution_mode,HAS_RISK_TRIGGERS:$has_risk_triggers,RISK_TRIGGERS:$risk_triggers}'
+        else
+            printf '{"REPO_ROOT":"%s","BRANCH":"%s","FEATURE_DIR":"%s","FEATURE_SPEC":"%s","IMPL_PLAN":"%s","TASKS":"%s","EXECUTION_MODE":"%s","HAS_RISK_TRIGGERS":%s,"RISK_TRIGGERS":"%s"}\n' \
+                "$(json_escape "$REPO_ROOT")" "$(json_escape "$CURRENT_BRANCH")" "$(json_escape "$FEATURE_DIR")" "$(json_escape "$FEATURE_SPEC")" "$(json_escape "$IMPL_PLAN")" "$(json_escape "$TASKS")" \
+                "$(json_escape "$_exec_mode")" "$_has_risk" "$(json_escape "$_risk_triggers")"
+        fi
     else
         echo "REPO_ROOT: $REPO_ROOT"
         echo "BRANCH: $CURRENT_BRANCH"
@@ -117,20 +131,20 @@ fi
 # Validate required directories and files
 if [[ ! -d "$FEATURE_DIR" ]]; then
     echo "ERROR: Feature directory not found: $FEATURE_DIR" >&2
-    echo "Run /speckit.specify or /speckit.prd first to create the feature structure." >&2
+    echo "Run $(format_speckit_command specify "$REPO_ROOT") first to create the feature structure." >&2
     exit 1
 fi
 
-if ! $NO_REQUIRE_PLAN && [[ ! -f "$IMPL_PLAN" ]]; then
+if [[ ! -f "$IMPL_PLAN" ]]; then
     echo "ERROR: plan.md not found in $FEATURE_DIR" >&2
-    echo "Run /speckit.plan first to create the implementation plan." >&2
+    echo "Run $(format_speckit_command plan "$REPO_ROOT") first to create the implementation plan." >&2
     exit 1
 fi
 
 # Check for tasks.md if required
 if $REQUIRE_TASKS && [[ ! -f "$TASKS" ]]; then
     echo "ERROR: tasks.md not found in $FEATURE_DIR" >&2
-    echo "Run /speckit.tasks first to create the task list." >&2
+    echo "Run $(format_speckit_command tasks "$REPO_ROOT") first to create the task list." >&2
     exit 1
 fi
 
@@ -147,25 +161,14 @@ if [[ -d "$CONTRACTS_DIR" ]] && [[ -n "$(ls -A "$CONTRACTS_DIR" 2>/dev/null)" ]]
 fi
 
 [[ -f "$QUICKSTART" ]] && docs+=("quickstart.md")
-[[ -f "$PRD" ]] && docs+=("prd.md")
-[[ -f "$ARD" ]] && docs+=("ar.md")
-[[ -f "$SEC" ]] && docs+=("sec.md")
 
 # Include tasks.md if requested and it exists
 if $INCLUDE_TASKS && [[ -f "$TASKS" ]]; then
     docs+=("tasks.md")
 fi
 
-# Detect execution mode and risk triggers
-set +e
-EXECUTION_MODE_OUTPUT=$(get_execution_mode "$FEATURE_DIR")
-execution_mode_status=$?
-set -e
-if [ "$execution_mode_status" -ne 0 ]; then
-    EXECUTION_MODE="invalid"
-else
-    EXECUTION_MODE="$EXECUTION_MODE_OUTPUT"
-fi
+# Resolve adaptive execution mode fields
+EXECUTION_MODE=$(get_execution_mode "$FEATURE_DIR")
 RISK_TRIGGERS=$(detect_risk_triggers "$FEATURE_SPEC")
 if [[ -n "$RISK_TRIGGERS" ]]; then
     HAS_RISK_TRIGGERS="true"
@@ -175,44 +178,49 @@ fi
 
 # Output results
 if $JSON_MODE; then
-    # Build JSON array of documents using jq for proper escaping
-    if [[ ${#docs[@]} -eq 0 ]]; then
-        json_docs_array='[]'
+    # Build JSON array of documents
+    if has_jq; then
+        if [[ ${#docs[@]} -eq 0 ]]; then
+            json_docs="[]"
+        else
+            json_docs=$(printf '%s\n' "${docs[@]}" | jq -R . | jq -s .)
+        fi
+        jq -cn \
+            --arg feature_dir "$FEATURE_DIR" \
+            --argjson docs "$json_docs" \
+            --arg execution_mode "$EXECUTION_MODE" \
+            --argjson has_risk_triggers "$HAS_RISK_TRIGGERS" \
+            --arg risk_triggers "$RISK_TRIGGERS" \
+            '{FEATURE_DIR:$feature_dir,AVAILABLE_DOCS:$docs,EXECUTION_MODE:$execution_mode,HAS_RISK_TRIGGERS:$has_risk_triggers,RISK_TRIGGERS:$risk_triggers}'
     else
-        # Use jq to safely build JSON array from docs
-        json_docs_array=$(printf '%s\n' "${docs[@]}" | jq -R . | jq -s .)
+        if [[ ${#docs[@]} -eq 0 ]]; then
+            json_docs="[]"
+        else
+            json_docs=$(for d in "${docs[@]}"; do printf '"%s",' "$(json_escape "$d")"; done)
+            json_docs="[${json_docs%,}]"
+        fi
+        printf '{"FEATURE_DIR":"%s","AVAILABLE_DOCS":%s,"EXECUTION_MODE":"%s","HAS_RISK_TRIGGERS":%s,"RISK_TRIGGERS":"%s"}\n' \
+            "$(json_escape "$FEATURE_DIR")" "$json_docs" \
+            "$(json_escape "$EXECUTION_MODE")" "$HAS_RISK_TRIGGERS" \
+            "$(json_escape "$RISK_TRIGGERS")"
     fi
-
-    # Use jq for proper JSON escaping of path variables
-    jq -n \
-        --arg feature_dir "$FEATURE_DIR" \
-        --argjson available_docs "$json_docs_array" \
-        --arg prd "$PRD" \
-        --arg ard "$ARD" \
-        --arg sec "$SEC" \
-        --arg execution_mode "$EXECUTION_MODE" \
-        --arg has_risk_triggers "$HAS_RISK_TRIGGERS" \
-        --arg risk_triggers "$RISK_TRIGGERS" \
-        '{FEATURE_DIR: $feature_dir, AVAILABLE_DOCS: $available_docs, PRD: $prd, ARD: $ard, SEC: $sec, EXECUTION_MODE: $execution_mode, HAS_RISK_TRIGGERS: $has_risk_triggers, RISK_TRIGGERS: $risk_triggers}'
 else
     # Text output
     echo "FEATURE_DIR:$FEATURE_DIR"
     echo "AVAILABLE_DOCS:"
-
+    
     # Show status of each potential document
     check_file "$RESEARCH" "research.md"
     check_file "$DATA_MODEL" "data-model.md"
     check_dir "$CONTRACTS_DIR" "contracts/"
     check_file "$QUICKSTART" "quickstart.md"
-    check_file "$PRD" "prd.md"
-    check_file "$ARD" "ar.md"
-    check_file "$SEC" "sec.md"
-
+    
     if $INCLUDE_TASKS; then
         check_file "$TASKS" "tasks.md"
     fi
 
-    echo "EXECUTION_MODE:$EXECUTION_MODE"
-    echo "HAS_RISK_TRIGGERS:$HAS_RISK_TRIGGERS"
-    echo "RISK_TRIGGERS:$RISK_TRIGGERS"
+    echo ""
+    echo "EXECUTION_MODE: $EXECUTION_MODE"
+    echo "HAS_RISK_TRIGGERS: $HAS_RISK_TRIGGERS"
+    echo "RISK_TRIGGERS: $RISK_TRIGGERS"
 fi

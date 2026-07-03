@@ -11,7 +11,6 @@
 #   -Json               Output in JSON format
 #   -RequireTasks       Require tasks.md to exist (for implementation phase)
 #   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
-#   -NoRequirePlan      Skip the plan.md requirement check
 #   -PathsOnly          Only output path variables (no validation)
 #   -Help, -h           Show help message
 
@@ -20,7 +19,6 @@ param(
     [switch]$Json,
     [switch]$RequireTasks,
     [switch]$IncludeTasks,
-    [switch]$NoRequirePlan,
     [switch]$PathsOnly,
     [switch]$Help
 )
@@ -38,7 +36,6 @@ OPTIONS:
   -Json               Output in JSON format
   -RequireTasks       Require tasks.md to exist (for implementation phase)
   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
-  -NoRequirePlan      Skip the plan.md requirement check
   -PathsOnly          Only output path variables (no prerequisite validation)
   -Help, -h           Show this help message
 
@@ -59,15 +56,21 @@ EXAMPLES:
 # Source common functions
 . "$PSScriptRoot/common.ps1"
 
-# Get feature paths and validate branch
-$paths = Get-FeaturePathsEnv
-
-if (-not (Test-FeatureBranch -Branch $paths.CURRENT_BRANCH -HasGit:$paths.HAS_GIT)) { 
-    exit 1 
+# Get feature paths.
+# In -PathsOnly mode this is pure resolution, so pass -NoPersist to opt out of
+# the feature.json write side effect (issue #3025).
+if ($PathsOnly) {
+    $paths = Get-FeaturePathsEnv -NoPersist
+} else {
+    $paths = Get-FeaturePathsEnv
 }
 
-# If paths-only mode, output paths and exit (support combined -Json -PathsOnly)
+# If paths-only mode, output paths and exit (no validation)
 if ($PathsOnly) {
+    $executionMode = Get-ExecutionMode -FeatureDir $paths.FEATURE_DIR
+    $riskTriggers = Detect-RiskTriggers -SpecFile $paths.FEATURE_SPEC
+    $hasRiskTriggers = -not [string]::IsNullOrWhiteSpace($riskTriggers)
+
     if ($Json) {
         [PSCustomObject]@{
             REPO_ROOT    = $paths.REPO_ROOT
@@ -76,9 +79,9 @@ if ($PathsOnly) {
             FEATURE_SPEC = $paths.FEATURE_SPEC
             IMPL_PLAN    = $paths.IMPL_PLAN
             TASKS        = $paths.TASKS
-            PRD          = $paths.PRD
-            ARD          = $paths.ARD
-            SEC          = $paths.SEC
+            EXECUTION_MODE = $executionMode
+            HAS_RISK_TRIGGERS = $hasRiskTriggers
+            RISK_TRIGGERS = $riskTriggers
         } | ConvertTo-Json -Compress
     } else {
         Write-Output "REPO_ROOT: $($paths.REPO_ROOT)"
@@ -87,27 +90,33 @@ if ($PathsOnly) {
         Write-Output "FEATURE_SPEC: $($paths.FEATURE_SPEC)"
         Write-Output "IMPL_PLAN: $($paths.IMPL_PLAN)"
         Write-Output "TASKS: $($paths.TASKS)"
+        Write-Output "EXECUTION_MODE: $executionMode"
+        Write-Output "HAS_RISK_TRIGGERS: $hasRiskTriggers"
+        Write-Output "RISK_TRIGGERS: $riskTriggers"
     }
     exit 0
 }
 
 # Validate required directories and files
 if (-not (Test-Path $paths.FEATURE_DIR -PathType Container)) {
-    Write-Output "ERROR: Feature directory not found: $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.specify or /speckit.prd first to create the feature structure."
+    [Console]::Error.WriteLine("ERROR: Feature directory not found: $($paths.FEATURE_DIR)")
+    $specifyCommand = Format-SpecKitCommand -CommandName 'specify' -RepoRoot $paths.REPO_ROOT
+    [Console]::Error.WriteLine("Run $specifyCommand first to create the feature structure.")
     exit 1
 }
 
-if (-not $NoRequirePlan -and -not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
-    Write-Output "ERROR: plan.md not found in $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.plan first to create the implementation plan."
+if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
+    [Console]::Error.WriteLine("ERROR: plan.md not found in $($paths.FEATURE_DIR)")
+    $planCommand = Format-SpecKitCommand -CommandName 'plan' -RepoRoot $paths.REPO_ROOT
+    [Console]::Error.WriteLine("Run $planCommand first to create the implementation plan.")
     exit 1
 }
 
 # Check for tasks.md if required
 if ($RequireTasks -and -not (Test-Path $paths.TASKS -PathType Leaf)) {
-    Write-Output "ERROR: tasks.md not found in $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.tasks first to create the task list."
+    [Console]::Error.WriteLine("ERROR: tasks.md not found in $($paths.FEATURE_DIR)")
+    $tasksCommand = Format-SpecKitCommand -CommandName 'tasks' -RepoRoot $paths.REPO_ROOT
+    [Console]::Error.WriteLine("Run $tasksCommand first to create the task list.")
     exit 1
 }
 
@@ -124,14 +133,15 @@ if ((Test-Path $paths.CONTRACTS_DIR) -and (Get-ChildItem -Path $paths.CONTRACTS_
 }
 
 if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
-if (Test-Path $paths.PRD) { $docs += 'prd.md' }
-if (Test-Path $paths.ARD) { $docs += 'ar.md' }
-if (Test-Path $paths.SEC) { $docs += 'sec.md' }
 
 # Include tasks.md if requested and it exists
 if ($IncludeTasks -and (Test-Path $paths.TASKS)) { 
     $docs += 'tasks.md' 
 }
+
+$executionMode = Get-ExecutionMode -FeatureDir $paths.FEATURE_DIR
+$riskTriggers = Detect-RiskTriggers -SpecFile $paths.FEATURE_SPEC
+$hasRiskTriggers = -not [string]::IsNullOrWhiteSpace($riskTriggers)
 
 # Output results
 if ($Json) {
@@ -139,9 +149,9 @@ if ($Json) {
     [PSCustomObject]@{ 
         FEATURE_DIR = $paths.FEATURE_DIR
         AVAILABLE_DOCS = $docs 
-        PRD = $paths.PRD
-        ARD = $paths.ARD
-        SEC = $paths.SEC
+        EXECUTION_MODE = $executionMode
+        HAS_RISK_TRIGGERS = $hasRiskTriggers
+        RISK_TRIGGERS = $riskTriggers
     } | ConvertTo-Json -Compress
 } else {
     # Text output
@@ -153,11 +163,13 @@ if ($Json) {
     Test-FileExists -Path $paths.DATA_MODEL -Description 'data-model.md' | Out-Null
     Test-DirHasFiles -Path $paths.CONTRACTS_DIR -Description 'contracts/' | Out-Null
     Test-FileExists -Path $paths.QUICKSTART -Description 'quickstart.md' | Out-Null
-    Test-FileExists -Path $paths.PRD -Description 'prd.md' | Out-Null
-    Test-FileExists -Path $paths.ARD -Description 'ar.md' | Out-Null
-    Test-FileExists -Path $paths.SEC -Description 'sec.md' | Out-Null
-
+    
     if ($IncludeTasks) {
         Test-FileExists -Path $paths.TASKS -Description 'tasks.md' | Out-Null
     }
+
+    Write-Output ""
+    Write-Output "EXECUTION_MODE: $executionMode"
+    Write-Output "HAS_RISK_TRIGGERS: $hasRiskTriggers"
+    Write-Output "RISK_TRIGGERS: $riskTriggers"
 }
